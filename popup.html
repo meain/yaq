@@ -51,12 +51,12 @@
         font-size: 14px;
       }
       .flexi {
-          display: flex;
-          flex-wrap: wrap;
+        display: flex;
+        flex-wrap: wrap;
       }
-      .flexi>button{
-            flex: 1;
-            height: 100%;
+      .flexi > button {
+        flex: 1;
+        height: 100%;
       }
     </style>
   </head>
@@ -73,15 +73,27 @@
         <button id="sentiment">Sentiment</button>
       </div>
       <div id="output">
-        Summarize or answer questions about the page.
-        For YouTube videos, we use the video subtitles as context.
-        <br>
-        <br>
-        Use <kbd>enter</kbd> to answer
-        <br>
-        Use <kbd>shift</kbd> + <kbd>enter</kbd> to summarize
-        <br>
-        Use <kbd>ctrl/cmd</kbd> + <kbd>shift</kbd> + <kbd>m</kbd> to bring up this popup
+        Summarize or answer questions about the page. For YouTube videos, we use
+        the video subtitles as context.
+        <br />
+        <br />
+        Use cases:
+        <ul>
+          <li>Summarize blogs or news articles</li>
+          <li>Answer questions about a product pages or YT video</li>
+          <li>Ask about GitHub issues or Linear tickets</li>
+          <li>Ask questions about currently open file in GH</li>
+          <li>Assist you in reviewing GitHub PRs</li>
+        </ul>
+        Shortcuts:
+        <ul>
+          <li>Use <kbd>enter</kbd> to answer</li>
+          <li>Use <kbd>shift</kbd> + <kbd>enter</kbd> to summarize</li>
+          <li>
+            Use <kbd>ctrl/cmd</kbd> + <kbd>shift</kbd> + <kbd>m</kbd> to bring
+            up this popup
+          </li>
+        </ul>
       </div>
     </div>
     <script src="popup.js"></script>
