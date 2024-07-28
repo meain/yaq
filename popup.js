@@ -61,11 +61,7 @@ function summarize() {
   document.getElementById("output").innerText = "Summarizing...";
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     chrome.tabs.sendMessage(tabs[0].id, { action: "getText" }, (response) => {
-      summarizeText(response.text).then((summary) => {
-        document.getElementById("output").innerText = summary;
-        document.getElementById("text").focus();
-        document.getElementById("output").select();
-      });
+      summarizeText(response.text).then(renderHTML);
     });
   });
 }
@@ -75,6 +71,7 @@ function answer() {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     chrome.tabs.sendMessage(tabs[0].id, { action: "getText" }, (response) => {
       const text = response.text;
+
       const question = document.getElementById("text").value;
       if (!question) {
         document.getElementById("output").innerText =
@@ -82,13 +79,17 @@ function answer() {
         return;
       }
 
-      answerQuestion(text, question).then((answer) => {
-        document.getElementById("output").innerText = answer;
-        document.getElementById("text").focus();
-        document.getElementById("output").select();
-      });
+      answerQuestion(text, question).then(renderHTML);
     });
   });
+}
+
+function renderHTML(text) {
+  const converter = new showdown.Converter();
+  const html = converter.makeHtml(text);
+  document.getElementById("output").innerHTML = html;
+  document.getElementById("text").focus();
+  document.getElementById("text").select();
 }
 
 document.addEventListener(
