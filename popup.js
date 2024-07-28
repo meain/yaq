@@ -121,7 +121,7 @@ function answer(question) {
     chrome.tabs.sendMessage(tabs[0].id, { action: "getText" }, (response) => {
       const text = response.text;
 
-      if (question === "") {
+      if (question == undefined || question === "") {
         question = document.getElementById("text").value;
         if (!question) {
           document.getElementById("output").innerText =
