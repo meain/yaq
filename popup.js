@@ -51,7 +51,7 @@ async function fetchFromOpenAI(messages) {
       }
 
       document.getElementById("output").innerText =
-        `Processing using ${model} model...`;
+        `Processing using ${model}...`;
 
       const response = await fetch(
         "https://api.openai.com/v1/chat/completions",
