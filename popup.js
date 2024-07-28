@@ -12,21 +12,50 @@ async function summarizeText(text) {
     },
     body: JSON.stringify({
       model: OPENAI_MODEL,
+      stream: true, // Enable streaming
       messages: [
         {
           role: "system",
           content:
             "You are a summarizer bot. " +
             "Help me summarize text that I provide. " +
-            "Use emojies as necessary",
+            "Use emojis as necessary",
         },
         { role: "user", content: text },
       ],
     }),
   });
 
-  const data = await response.json();
-  return data.choices[0].message.content;
+  await streamResponse(response);
+}
+
+async function streamResponse(response) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let done = false;
+  let result = "";
+  let output = "";
+
+  while (!done) {
+    const { value, done: doneReading } = await reader.read();
+    done = doneReading;
+    result = decoder.decode(value, { stream: !done });
+    // Process the stream as it comes in
+    if (value) {
+      const lines = result.split("\n");
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = JSON.parse(line.substring(6));
+          if (data.choices && data.choices.length > 0) {
+            const content = data.choices[0].delta?.content || "";
+            console.log(content);
+            output += content;
+            renderPartialHTML(output);
+          }
+        }
+      }
+    }
+  }
 }
 
 async function answerQuestion(text, question) {
@@ -38,13 +67,16 @@ async function answerQuestion(text, question) {
     },
     body: JSON.stringify({
       model: OPENAI_MODEL,
+      stream: true, // Enable streaming
       messages: [
         {
           role: "system",
           content:
             "You are a question answering bot. " +
             "I'll provide you with the content first and then a question. " +
-            "Answer the question with a brief answer.",
+            "Answer the question with a brief answer. " +
+            "If the question is not answered by the content, " +
+            "you can answer, but please mention that the answer is not in the content.",
         },
         { role: "user", content: text },
         { role: "assistant", content: "What is the question?" },
@@ -53,15 +85,14 @@ async function answerQuestion(text, question) {
     }),
   });
 
-  const data = await response.json();
-  return data.choices[0].message.content;
+  await streamResponse(response);
 }
 
 function summarize() {
   document.getElementById("output").innerText = "Summarizing...";
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     chrome.tabs.sendMessage(tabs[0].id, { action: "getText" }, (response) => {
-      summarizeText(response.text).then(renderHTML);
+      summarizeText(response.text);
     });
   });
 }
@@ -79,17 +110,15 @@ function answer() {
         return;
       }
 
-      answerQuestion(text, question).then(renderHTML);
+      answerQuestion(text, question);
     });
   });
 }
 
-function renderHTML(text) {
+function renderPartialHTML(partialText) {
   const converter = new showdown.Converter();
-  const html = converter.makeHtml(text);
-  document.getElementById("output").innerHTML = html;
-  document.getElementById("text").focus();
-  document.getElementById("text").select();
+  const partialHtml = converter.makeHtml(partialText);
+  document.getElementById("output").innerHTML = partialHtml;
 }
 
 document.addEventListener(
