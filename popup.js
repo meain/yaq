@@ -3,32 +3,6 @@ const OPENAI_API_KEY =
 
 const OPENAI_MODEL = "gpt-4o-mini";
 
-async function summarizeText(text) {
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: OPENAI_MODEL,
-      stream: true, // Enable streaming
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a summarizer bot. " +
-            "Help me summarize text that I provide. " +
-            "Use emojis as necessary",
-        },
-        { role: "user", content: text },
-      ],
-    }),
-  });
-
-  await streamResponse(response);
-}
-
 async function streamResponse(response) {
   const reader = response.body.getReader();
   const decoder = new TextDecoder("utf-8");
@@ -58,7 +32,7 @@ async function streamResponse(response) {
   }
 }
 
-async function answerQuestion(text, question) {
+async function fetchFromOpenAI(messages) {
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -68,24 +42,45 @@ async function answerQuestion(text, question) {
     body: JSON.stringify({
       model: OPENAI_MODEL,
       stream: true, // Enable streaming
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a question answering bot. " +
-            "I'll provide you with the content first and then a question. " +
-            "Answer the question with a brief answer. " +
-            "If the question is not answered by the content, " +
-            "you can answer, but please mention that the answer is not in the content.",
-        },
-        { role: "user", content: text },
-        { role: "assistant", content: "What is the question?" },
-        { role: "user", content: question },
-      ],
+      messages: messages,
     }),
   });
 
   await streamResponse(response);
+}
+
+async function summarizeText(text) {
+  const messages = [
+    {
+      role: "system",
+      content:
+        "You are a summarizer bot. " +
+        "Help me summarize the text that I provide. " +
+        "Use emojis as necessary",
+    },
+    { role: "user", content: text },
+  ];
+
+  await fetchFromOpenAI(messages);
+}
+
+async function answerQuestion(text, question) {
+  const messages = [
+    {
+      role: "system",
+      content:
+        "You are a question answering bot. " +
+        "I'll provide you with the content first and then a question. " +
+        "Answer the question with a brief answer. " +
+        "If the question is not answered by the content, " +
+        "you can answer, but please mention that the answer is not in the content.",
+    },
+    { role: "user", content: text },
+    { role: "assistant", content: "What is the question?" },
+    { role: "user", content: question },
+  ];
+
+  await fetchFromOpenAI(messages);
 }
 
 function summarize() {
@@ -97,17 +92,19 @@ function summarize() {
   });
 }
 
-function answer() {
+function answer(question) {
   document.getElementById("output").innerText = "Answering...";
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     chrome.tabs.sendMessage(tabs[0].id, { action: "getText" }, (response) => {
       const text = response.text;
 
-      const question = document.getElementById("text").value;
-      if (!question) {
-        document.getElementById("output").innerText =
-          "Please provide a question";
-        return;
+      if (question === "") {
+        question = document.getElementById("text").value;
+        if (!question) {
+          document.getElementById("output").innerText =
+            "Please provide a question";
+          return;
+        }
       }
 
       answerQuestion(text, question);
@@ -125,7 +122,20 @@ document.addEventListener(
   "DOMContentLoaded",
   function () {
     document.getElementById("summarize").onclick = summarize;
-    document.getElementById("answer").onclick = answer;
+
+    const addClickListener = (id, text) => {
+      document.getElementById(id).onclick = () => answer(text);
+    };
+
+    // TODO: This should be addable via options page
+    addClickListener("answer", "");
+    addClickListener("one-line", "Summarize in one line");
+    addClickListener("final", "What was the final decision or next steps.");
+    addClickListener(
+      "sentiment",
+      "What is the general sentiment of the text. Keep it short, ideally one line and add an emoji if possible.",
+    );
+
     document.getElementById("text").focus();
 
     // Enter on text box should trigger answer

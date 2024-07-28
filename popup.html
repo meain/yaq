@@ -7,9 +7,10 @@
         background-color: #f0f0f0;
         margin: 0;
         padding: 10px;
+        min-width: 500px;
       }
       #container {
-        max-width: 400px;
+        max-width: 500px;
         margin: auto;
         padding: 10px;
         background-color: white;
@@ -49,6 +50,14 @@
         border-radius: 4px;
         font-size: 14px;
       }
+      .flexi {
+          display: flex;
+          flex-wrap: wrap;
+      }
+      .flexi>button{
+            flex: 1;
+            height: 100%;
+      }
     </style>
   </head>
   <body>
@@ -56,7 +65,12 @@
       <div class="input-group">
         <input type="text" id="text" placeholder="Want answers?" />
         <button id="answer">Answer</button>
+      </div>
+      <div class="input-group flexi">
+        <button id="one-line">One line</button>
         <button id="summarize">Summarize</button>
+        <button id="final">Final</button>
+        <button id="sentiment">Sentiment</button>
       </div>
       <div id="output">Summarize on answer questions about the page</div>
     </div>
