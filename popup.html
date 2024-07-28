@@ -58,6 +58,17 @@
         flex: 1;
         height: 100%;
       }
+      #copy {
+        display: none;
+        padding: 3px 5px;
+        border: none;
+        background-color: #000;
+        color: white;
+        cursor: pointer;
+        font-size: 10px;
+        box-shadow: none;
+        border-bottom: none;
+      }
     </style>
   </head>
   <body>
@@ -95,6 +106,7 @@
           </li>
         </ul>
       </div>
+      <button id="copy">Copy response</button>
     </div>
     <script src="popup.js"></script>
     <script src="showdown.min.js"></script>

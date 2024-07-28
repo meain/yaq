@@ -1,4 +1,5 @@
 let prevReader = null;
+let responseCache = "";
 
 async function streamResponse(response) {
   if (prevReader) {
@@ -150,14 +151,24 @@ function answer(question) {
 }
 
 function renderPartialHTML(partialText) {
+  responseCache = partialText;
   const converter = new showdown.Converter();
   const partialHtml = converter.makeHtml(partialText);
   document.getElementById("output").innerHTML = partialHtml;
+  document.getElementById("copy").style.display = "block";
 }
 
 document.addEventListener(
   "DOMContentLoaded",
   function () {
+    document.getElementById("copy").onclick = () => {
+      navigator.clipboard.writeText(responseCache);
+      document.getElementById("copy").innerText = "Copied!";
+      setTimeout(() => {
+        document.getElementById("copy").innerText = "Copy response";
+      }, 2000);
+    };
+
     document.getElementById("summarize").onclick = summarize;
 
     const addClickListener = (id, text) => {
