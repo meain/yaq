@@ -3,8 +3,16 @@ const OPENAI_API_KEY =
 
 const OPENAI_MODEL = "gpt-4o-mini";
 
+let prevReader = null;
+
 async function streamResponse(response) {
+  if (prevReader) {
+    prevReader.cancel();
+  }
+
   const reader = response.body.getReader();
+  prevReader = reader;
+
   const decoder = new TextDecoder("utf-8");
   let done = false;
   let result = "";
