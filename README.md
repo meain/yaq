@@ -2,7 +2,7 @@
 
 Browser extension to do LLM stuff.
 
-![Screenshot](https://private-user-images.githubusercontent.com/14259816/352802821-018214f8-7052-442c-b5ad-5ef0a643973b.png)
+https://github.com/user-attachments/assets/1680801a-7b0e-4564-bfa6-e5ede583a71e
 
 ---
 
