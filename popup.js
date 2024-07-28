@@ -109,6 +109,8 @@ async function answerQuestion(text, question) {
 }
 
 function summarize() {
+  document.getElementById("output").innerText = `Getting webpage content...`;
+
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     chrome.tabs.sendMessage(tabs[0].id, { action: "getText" }, (response) => {
       summarizeText(response.text);
@@ -117,8 +119,20 @@ function summarize() {
 }
 
 function answer(question) {
+  document.getElementById("output").innerText = `Getting webpage content...`;
+
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     chrome.tabs.sendMessage(tabs[0].id, { action: "getText" }, (response) => {
+      if (
+        response === undefined ||
+        response.text === undefined ||
+        response.text === ""
+      ) {
+        document.getElementById("output").innerText =
+          "Woopsie! Unable to get the webpage content.";
+        return;
+      }
+
       const text = response.text;
 
       if (question == undefined || question === "") {
