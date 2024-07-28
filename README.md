@@ -1,6 +1,7 @@
 # ![icon](./assets/icon48.png) Yeeha
 
-Browser extension to do LLM stuff.
+Browser extension to do LLM stuff. Ask questions about a blog, press
+release or a YouTube video.
 
 https://github.com/user-attachments/assets/1680801a-7b0e-4564-bfa6-e5ede583a71e
 
