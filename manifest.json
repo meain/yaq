@@ -1,6 +1,7 @@
 {
-  "name": "Sleed",
-  "version": "2.0.0",
+  "name": "Yeeha",
+  "description": "Browser extension to do LLM stuff",
+  "version": "1.0.0",
   "manifest_version": 2,
   "content_scripts": [
     {
@@ -13,7 +14,8 @@
     }
   ],
   "permissions": [
-    "activeTab"
+    "activeTab",
+    "storage"
   ],
   "background": {
     "scripts": [
@@ -28,6 +30,11 @@
   "icons": {
     "16": "assets/icon.png",
     "48": "assets/icon48.png"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "browser_style": true,
+    "open_in_tab": false
   },
   "commands": {
     "_execute_browser_action": {

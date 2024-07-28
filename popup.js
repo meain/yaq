@@ -1,8 +1,3 @@
-const OPENAI_API_KEY =
-  "...";
-
-const OPENAI_MODEL = "gpt-4o-mini";
-
 let prevReader = null;
 
 async function streamResponse(response) {
@@ -30,7 +25,6 @@ async function streamResponse(response) {
           const data = JSON.parse(line.substring(6));
           if (data.choices && data.choices.length > 0) {
             const content = data.choices[0].delta?.content || "";
-            console.log(content);
             output += content;
             renderPartialHTML(output);
           }
@@ -41,20 +35,43 @@ async function streamResponse(response) {
 }
 
 async function fetchFromOpenAI(messages) {
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
+  chrome.storage.local.get(
+    {
+      apiKey: "",
+      model: "",
     },
-    body: JSON.stringify({
-      model: OPENAI_MODEL,
-      stream: true, // Enable streaming
-      messages: messages,
-    }),
-  });
+    async function (items) {
+      const apiKey = items.apiKey;
+      const model = items.model;
 
-  await streamResponse(response);
+      if (apiKey === "" || model === "") {
+        document.getElementById("output").innerText =
+          "Please set your OpenAI API key and model in the options page";
+        return;
+      }
+
+      document.getElementById("output").innerText =
+        `Processing using ${model} model...`;
+
+      const response = await fetch(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: model,
+            stream: true, // Enable streaming
+            messages: messages,
+          }),
+        },
+      );
+
+      await streamResponse(response);
+    },
+  );
 }
 
 async function summarizeText(text) {
@@ -92,7 +109,6 @@ async function answerQuestion(text, question) {
 }
 
 function summarize() {
-  document.getElementById("output").innerText = "Summarizing...";
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     chrome.tabs.sendMessage(tabs[0].id, { action: "getText" }, (response) => {
       summarizeText(response.text);
@@ -101,7 +117,6 @@ function summarize() {
 }
 
 function answer(question) {
-  document.getElementById("output").innerText = "Answering...";
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     chrome.tabs.sendMessage(tabs[0].id, { action: "getText" }, (response) => {
       const text = response.text;

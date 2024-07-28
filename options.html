@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+  <head>
+    <title>My Test Extension Options</title>
+  </head>
+  <body>
+    <label>
+      OPENAI API Key
+      <input type="text" id="key" placeholder="sk-..." />
+    </label>
+
+    OpenAI Model
+    <select id="model">
+      <option value="gpt-4o-mini">GPT 4o mini</option>
+      <option value="gpt-4">GPT 4</option>
+      <option value="gpt-4o">GPT 4o</option>
+    </select>
+
+    <div id="status"></div>
+    <button id="save">Save</button>
+
+    <script src="options.js"></script>
+  </body>
+</html>
