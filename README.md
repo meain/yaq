@@ -9,5 +9,5 @@ https://github.com/user-attachments/assets/1680801a-7b0e-4564-bfa6-e5ede583a71e
 ---
 
 - <a target="_blank" href="https://icons8.com/icon/GC1ZuXqlf4wE/hub">Hub</a> icon by <a target="_blank" href="https://icons8.com">Icons8</a>
-- Store a bunch of code from [eliascotto/youtube-subtitles-viewer](https://github.com/eliascotto/youtube-subtitles-viewer/) for fetching subtitles
+- Code to fetch subtitles from [eliascotto/youtube-subtitles-viewer](https://github.com/eliascotto/youtube-subtitles-viewer/)
 
