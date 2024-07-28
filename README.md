@@ -2,7 +2,8 @@
 
 Browser extension to do LLM stuff. Ask questions about a blog, press
 release or a YouTube video. It seems to even work on GitHub code and
-tickets in linear or GH.
+tickets in linear or GH. Oh and I have used it to help me review PRs
+on GH as well.
 
 https://github.com/user-attachments/assets/1680801a-7b0e-4564-bfa6-e5ede583a71e
 
