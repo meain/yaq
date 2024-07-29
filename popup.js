@@ -183,6 +183,10 @@ document.addEventListener(
       "sentiment",
       "What is the general sentiment of the text. Keep it short, ideally one line and add an emoji if possible.",
     );
+    addClickListener(
+      "faq",
+      "Generate 5 FAQ that is well answered in this along with their answers. The questions should be generic but informative and not obvious. Format them as markdown dropdowns.",
+    );
 
     document.getElementById("text").focus();
 
