@@ -1,4 +1,6 @@
-# ![icon](./assets/icon48.png) Yeeha
+# ![icon](./assets/icon48.png) Yaq
+
+> Your Assistant for Querying the web
 
 Browser extension to do LLM stuff. Ask questions about a blog, press
 release or a YouTube video. It seems to even work on GitHub code and
@@ -11,7 +13,8 @@ interesting use-cases. If you like this, you might also like
 
 https://github.com/user-attachments/assets/1680801a-7b0e-4564-bfa6-e5ede583a71e
 
-> Installation: Clone, run `make build`, load as debug addon.
+- Installation: Clone, run `make build`, load as debug addon.
+- Configuraiton: Go to addons page, click on options/properties for Yaq.
 
 ---
 

@@ -1,5 +1,5 @@
 {
-  "name": "Yeeha",
+  "name": "Yaq",
   "description": "Browser extension to do LLM stuff",
   "version": "1.0.0",
   "manifest_version": 2,
@@ -25,7 +25,7 @@
   },
   "browser_action": {
     "default_popup": "popup.html",
-    "default_title": "Yeeha"
+    "default_title": "Yaq"
   },
   "icons": {
     "16": "assets/icon.png",
