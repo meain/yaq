@@ -1,20 +1,20 @@
-let subtitleCache = "";
+let subtitleCache = {};
 
 chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
   if (request.action === "getText") {
     if (window.location.host == "www.youtube.com") {
-      if (subtitleCache) {
-        return { text: subtitleCache };
-      }
-
       const url = new URL(window.location.href);
       const videoID = url.searchParams.get("v");
+
+      if (subtitleCache[videoID]) {
+        return { text: subtitleCache[videoID] };
+      }
 
       const languages = await getLanguagesList(videoID);
       if (languages.length > 0) {
         const subtitle = languages[0];
         const subtitles = await getSubtitles(subtitle);
-        subtitleCache = subtitles;
+        subtitleCache[videoID] = subtitles;
         return { text: subtitles };
       } else {
         return { text: "" };
