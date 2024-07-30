@@ -46,6 +46,11 @@
       "suggested_key": {
         "default": "Ctrl+Shift+M"
       }
+    },
+    "_execute_sidebar_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+M"
+      }
     }
   }
 }
