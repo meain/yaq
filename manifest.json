@@ -36,6 +36,11 @@
     "browser_style": true,
     "open_in_tab": false
   },
+  "sidebar_action": {
+    "default_title": "Yaq",
+    "default_panel": "popup.html",
+    "default_icon": "assets/icon.png"
+  },
   "commands": {
     "_execute_browser_action": {
       "suggested_key": {
