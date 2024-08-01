@@ -97,9 +97,7 @@ async function answerQuestion(text, question) {
       content:
         "You are a question answering bot. " +
         "I'll provide you with the content first and then a question. " +
-        "Answer the question with a brief answer. " +
-        "If the question is not answered by the content, " +
-        "you can answer, but please mention that the answer is not in the content.",
+        "Answer the question with a brief answer. ",
     },
     { role: "user", content: text },
     { role: "assistant", content: "What is the question?" },
