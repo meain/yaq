@@ -107,11 +107,16 @@ async function answerQuestion(text, question) {
   await fetchFromOpenAI(messages);
 }
 
+function useSelection() {
+  return document.getElementById("selection").checked;
+}
+
 function summarize() {
   document.getElementById("output").innerText = `Getting webpage content...`;
+  let action = useSelection() ? "getSelection" : "getText";
 
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    chrome.tabs.sendMessage(tabs[0].id, { action: "getText" }, (response) => {
+    chrome.tabs.sendMessage(tabs[0].id, { action: action }, (response) => {
       summarizeText(response.text);
     });
   });
@@ -119,9 +124,10 @@ function summarize() {
 
 function answer(question) {
   document.getElementById("output").innerText = `Getting webpage content...`;
+  let action = useSelection() ? "getSelection" : "getText";
 
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    chrome.tabs.sendMessage(tabs[0].id, { action: "getText" }, (response) => {
+    chrome.tabs.sendMessage(tabs[0].id, { action: action }, (response) => {
       if (
         response === undefined ||
         response.text === undefined ||

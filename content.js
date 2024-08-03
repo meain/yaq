@@ -23,6 +23,16 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
       let text = document.body.innerText;
       return { text: text };
     }
+  } else if (request.action === "getURL") {
+    return { url: window.location.href };
+  } else if (request.action === "getSelection") {
+    return { text: window.getSelection().toString() };
+  } else if (request.action === "getMeta") {
+    return {
+      title: document.title,
+      url: window.location.href,
+      selection: window.getSelection().toString(),
+    };
   }
 });
 
