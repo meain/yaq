@@ -23,7 +23,9 @@ async function streamResponse(response) {
       const lines = result.split("\n");
       for (const line of lines) {
         if (line.startsWith("data: ")) {
+          if (line.substring(6) == "[DONE]") break;
           const data = JSON.parse(line.substring(6));
+
           if (data.choices && data.choices.length > 0) {
             const content = data.choices[0].delta?.content || "";
             output += content;
