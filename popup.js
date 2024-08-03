@@ -180,7 +180,13 @@ async function storeInteraction(kind, replace, url, messages, response) {
         timestamp: new Date().toISOString(),
       });
 
-      if (interactions.length > 10) {
+      // Remove messages until the json size is under 7MB (limit is 10MB)
+      while (true) {
+        let size = JSON.stringify(interactions).length;
+        if (size < 7000000) {
+          break;
+        }
+
         interactions.shift();
       }
 
