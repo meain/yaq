@@ -2,21 +2,27 @@ let prevReader = null;
 let responseCache = "";
 let index = -1;
 
-function showInteractionAtIndex(interactions, index){
+function showInteractionAtIndex(interactions, index) {
   if (index < interactions.length) {
     const lastMessageIndex = interactions[index].messages.length - 1;
     const lastMessage = interactions[index].messages[lastMessageIndex];
-    const secondLastMessage = interactions[index].messages[lastMessageIndex - 1];
+    const secondLastMessage =
+      interactions[index].messages[lastMessageIndex - 1];
 
-    console.log("popup.js:11 interactions.kind:", interactions[index].kind)
     if (interactions[index].kind === "qa") {
       document.getElementById("question").innerText =
-        "Q: " + secondLastMessage.content.split("\n")[0];
+        "[" + (index + 1) + "] Q: " + secondLastMessage.content.split("\n")[0];
     } else if (interactions[index].kind === "summary") {
-      document.getElementById("question").innerText = "Summary";
+      document.getElementById("question").innerText =
+        "[" + (index + 1) + "] Summary";
     } else {
-      document.getElementById("question").innerText = secondLastMessage.content.split("\n")[0];
+      document.getElementById("question").innerText =
+        "[" + (index + 1) + "] " + secondLastMessage.content.split("\n")[0];
     }
+
+    let url = new URL(interactions[index].url);
+    document.getElementById("qurl").innerText = url.hostname;
+    document.getElementById("qurl").href = interactions[index].url;
 
     renderPartialHTML(lastMessage.content);
   }
@@ -217,8 +223,11 @@ async function summarizeText(url, text) {
     { role: "user", content: text },
   ];
 
-
   document.getElementById("question").innerText = "Summary";
+  let purl = new URL(url);
+  document.getElementById("qurl").innerText = purl.hostname;
+  document.getElementById("qurl").href = url;
+
   const response = await getLLMResponse(messages);
   await storeInteraction("summary", false, url, messages, response);
 }
@@ -243,7 +252,11 @@ async function answerQuestion(url, text, cont, question) {
     messages.push({ role: "user", content: question });
   }
 
-  document.getElementById("question").innerText = "Q: "+ question;
+  document.getElementById("question").innerText = "Q: " + question;
+  let purl = new URL(url);
+  document.getElementById("qurl").innerText = purl.hostname;
+  document.getElementById("qurl").href = url;
+
   const response = await getLLMResponse(messages);
   await storeInteraction(
     "qa",

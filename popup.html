@@ -83,10 +83,16 @@
         text-align: center;
         padding: 1px 6px;
         margin: 1px 3px;
+        height: 100%;
       }
       .mini > b {
-        margin-left: 5px;
+        padding: 1px 6px;
+        margin: 1px 3px;
         flex: 1;
+      }
+      .mini-q {
+        display: flex;
+        flex-direction: column;
       }
       #copy {
         display: none;
@@ -128,7 +134,10 @@
       <div class="mini">
         <button id="prev">&lt;</button>
         <button id="next">&gt;</button>
-        <b id="question"></b>
+        <div class="mini-q">
+          <b id="question"></b>
+          <a id="qurl"></a>
+        </div>
       </div>
 
       <div id="output">
