@@ -88,11 +88,15 @@ async function storeInteraction(model, url, messages, response) {
     },
     function (items) {
       const interactions = items.interactions;
+      messages.push({
+        role: "assistant",
+        content: response,
+      });
+
       interactions.push({
         url: url,
         model: model,
         messages: messages,
-        response: response,
         timestamp: new Date().toISOString(),
       });
 
@@ -103,6 +107,28 @@ async function storeInteraction(model, url, messages, response) {
       browser.storage.local.set({ interactions: interactions });
     },
   );
+}
+
+function getLastInteraction(url){
+  // Get the last interaction which is made from the same domain
+  return new Promise((resolve, reject) => {
+    browser.storage.local.get(
+      {
+        interactions: [],
+      },
+      function (items) {
+        const interactions = items.interactions;
+        let lastInteraction = null;
+        for (let i = interactions.length - 1; i >= 0; i--) {
+          if (interactions[i].url === url) {
+            lastInteraction = interactions[i];
+            break;
+          }
+        }
+        resolve(lastInteraction);
+      },
+    );
+  });
 }
 
 async function summarizeText(url, text) {
@@ -120,8 +146,9 @@ async function summarizeText(url, text) {
   await fetchFromOpenAI(url, messages);
 }
 
-async function answerQuestion(url, text, question) {
-  const messages = [
+async function answerQuestion(url, text, cont, question) {
+  const lastInteraction = await getLastInteraction(url);
+  let messages = [
     {
       role: "system",
       content:
@@ -134,11 +161,20 @@ async function answerQuestion(url, text, question) {
     { role: "user", content: question },
   ];
 
+  if (lastInteraction && cont) {
+    messages = lastInteraction.messages;
+    messages.push({ role: "user", content: question });
+  }
+
   await fetchFromOpenAI(url, messages);
 }
 
 function useSelection() {
   return document.getElementById("selection").checked;
+}
+
+function continueConversation(){
+  return document.getElementById("continue").checked;
 }
 
 function summarize() {
@@ -147,6 +183,16 @@ function summarize() {
 
   browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     browser.tabs.sendMessage(tabs[0].id, { action: action }, (response) => {
+      if (
+        response === undefined ||
+        response.text === undefined ||
+        response.text === ""
+      ) {
+        document.getElementById("output").innerText =
+          "Woopsie! Unable to get the webpage content.";
+        return;
+      }
+
       summarizeText(response.url, response.text);
     });
   });
@@ -155,6 +201,7 @@ function summarize() {
 function answer(question) {
   document.getElementById("output").innerText = `Getting webpage content...`;
   let action = useSelection() ? "getSelection" : "getText";
+  let cont = continueConversation()
 
   browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     browser.tabs.sendMessage(tabs[0].id, { action: action }, (response) => {
@@ -179,7 +226,7 @@ function answer(question) {
         }
       }
 
-      answerQuestion(response.url, text, question);
+      answerQuestion(response.url, text, cont, question);
     });
   });
 }
