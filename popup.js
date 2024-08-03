@@ -1,5 +1,60 @@
 let prevReader = null;
 let responseCache = "";
+let index = -1;
+
+function showInteractionAtIndex(interactions, index){
+  if (index < interactions.length) {
+    const lastMessageIndex = interactions[index].messages.length - 1;
+    const lastMessage = interactions[index].messages[lastMessageIndex];
+    const secondLastMessage = interactions[index].messages[lastMessageIndex - 1];
+
+    console.log("popup.js:11 interactions.kind:", interactions[index].kind)
+    if (interactions[index].kind === "qa") {
+      document.getElementById("question").innerText =
+        "Q: " + secondLastMessage.content.split("\n")[0];
+    } else if (interactions[index].kind === "summary") {
+      document.getElementById("question").innerText = "Summary";
+    } else {
+      document.getElementById("question").innerText = secondLastMessage.content.split("\n")[0];
+    }
+
+    renderPartialHTML(lastMessage.content);
+  }
+}
+
+function showNext() {
+  browser.storage.local.get(
+    {
+      interactions: [],
+    },
+    function (items) {
+      const interactions = items.interactions;
+      if (index < interactions.length - 1) {
+        index++;
+        showInteractionAtIndex(interactions, index);
+      }
+    },
+  );
+}
+
+function showPrev() {
+  browser.storage.local.get(
+    {
+      interactions: [],
+    },
+    function (items) {
+      const interactions = items.interactions;
+      if (index === -1) {
+        index = interactions.length - 1;
+      }
+
+      if (index < interactions.length && index > 0) {
+        index--;
+        showInteractionAtIndex(interactions, index);
+      }
+    },
+  );
+}
 
 async function streamResponse(response) {
   if (prevReader) {
@@ -65,6 +120,8 @@ async function fetchFromOpenAI(model, apiKey, messages) {
 }
 
 function getLLMResponse(messages) {
+  index = -1; // Reset index
+
   return new Promise((resolve, reject) => {
     browser.storage.local.get(
       {
@@ -160,6 +217,8 @@ async function summarizeText(url, text) {
     { role: "user", content: text },
   ];
 
+
+  document.getElementById("question").innerText = "Summary";
   const response = await getLLMResponse(messages);
   await storeInteraction("summary", false, url, messages, response);
 }
@@ -184,6 +243,7 @@ async function answerQuestion(url, text, cont, question) {
     messages.push({ role: "user", content: question });
   }
 
+  document.getElementById("question").innerText = "Q: "+ question;
   const response = await getLLMResponse(messages);
   await storeInteraction(
     "qa",
@@ -274,6 +334,9 @@ document.addEventListener(
         document.getElementById("copy").innerText = "Copy response";
       }, 2000);
     };
+
+    document.getElementById("next").onclick = showNext;
+    document.getElementById("prev").onclick = showPrev;
 
     document.getElementById("summarize").onclick = summarize;
 

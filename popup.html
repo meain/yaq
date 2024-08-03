@@ -25,9 +25,6 @@
         border-radius: 4px;
         overflow: hidden;
       }
-      .checkbox-group {
-        margin-bottom: 10px;
-      }
       input[type="text"] {
         flex: 1;
         padding: 8px;
@@ -61,6 +58,7 @@
         flex-wrap: wrap;
         flex-grow: 1;
         border: none !important;
+        margin-top: 10px;
       }
       .flexi > button {
         flex: 1;
@@ -72,6 +70,24 @@
         text-align: center;
         padding: 5px 10px;
       }
+      .mini {
+        border-top: 1px solid #ccc;
+        margin-top: 10px;
+        padding-top: 10px;
+        width: 100%;
+        display: flex;
+        align-items: start;
+      }
+      .mini > button {
+        border-radius: 5px;
+        text-align: center;
+        padding: 1px 6px;
+        margin: 1px 3px;
+      }
+      .mini > b {
+        margin-left: 5px;
+        flex: 1;
+      }
       #copy {
         display: none;
         padding: 3px 5px;
@@ -82,6 +98,9 @@
         font-size: 10px;
         box-shadow: none;
         border-bottom: none;
+      }
+      #question {
+        overflow: elipsis;
       }
     </style>
   </head>
@@ -105,6 +124,13 @@
         <button id="sentiment">Sentiment</button>
         <button id="faq">FAQ</button>
       </div>
+
+      <div class="mini">
+        <button id="prev">&lt;</button>
+        <button id="next">&gt;</button>
+        <b id="question"></b>
+      </div>
+
       <div id="output">
         Summarize or answer questions about the page. For YouTube videos, we use
         the video subtitles as context.
