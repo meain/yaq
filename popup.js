@@ -39,63 +39,80 @@ async function streamResponse(response) {
   return output;
 }
 
-async function fetchFromOpenAI(url, messages) {
-  browser.storage.local.get(
-    {
-      apiKey: "",
-      model: "",
-    },
-    async function (items) {
-      const apiKey = items.apiKey;
-      const model = items.model;
+async function fetchFromOpenAI(model, apiKey, messages) {
+  if (apiKey === "" || model === "") {
+    document.getElementById("output").innerText =
+      "Please set your OpenAI API key and model in the options page";
+    return;
+  }
 
-      if (apiKey === "" || model === "") {
+  document.getElementById("output").innerText = `Processing using ${model}...`;
+
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: model,
+      stream: true, // Enable streaming
+      messages: messages,
+    }),
+  });
+
+  return await streamResponse(response);
+}
+
+function getLLMResponse(messages) {
+  return new Promise((resolve, reject) => {
+    browser.storage.local.get(
+      {
+        apiKey: "",
+        model: "",
+      },
+      async function (items) {
+        const apiKey = items.apiKey;
+        const model = items.model;
+
+        if (apiKey === "" || model === "") {
+          document.getElementById("output").innerText =
+            "Please set your OpenAI API key and model in the options page";
+          return;
+        }
+
         document.getElementById("output").innerText =
-          "Please set your OpenAI API key and model in the options page";
-        return;
-      }
+          `Processing using ${model}...`;
 
-      document.getElementById("output").innerText =
-        `Processing using ${model}...`;
-
-      const response = await fetch(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model: model,
-            stream: true, // Enable streaming
-            messages: messages,
-          }),
-        },
-      );
-
-      const fullResponse = await streamResponse(response);
-      await storeInteraction(model, url, messages, fullResponse);
-    },
-  );
+        const response = await fetchFromOpenAI(model, apiKey, messages);
+        resolve({ provider: "openai", model, response });
+      },
+    );
+  });
 }
 
 // Store the last n interactions with timestamp
-async function storeInteraction(model, url, messages, response) {
+async function storeInteraction(kind, replace, url, messages, response) {
   browser.storage.local.get(
     {
       interactions: [],
     },
     function (items) {
-      const interactions = items.interactions;
       messages.push({
         role: "assistant",
-        content: response,
+        content: response.response,
       });
 
+      const interactions = items.interactions;
+      if (replace) {
+        interactions.pop();
+      }
+
       interactions.push({
+        model: response.model,
+        provider: response.provider,
+        kind: kind,
         url: url,
-        model: model,
         messages: messages,
         timestamp: new Date().toISOString(),
       });
@@ -109,7 +126,7 @@ async function storeInteraction(model, url, messages, response) {
   );
 }
 
-function getLastInteraction(url){
+function getLastInteraction(url) {
   // Get the last interaction which is made from the same domain
   return new Promise((resolve, reject) => {
     browser.storage.local.get(
@@ -143,7 +160,8 @@ async function summarizeText(url, text) {
     { role: "user", content: text },
   ];
 
-  await fetchFromOpenAI(url, messages);
+  const response = await getLLMResponse(messages);
+  await storeInteraction("summary", false, url, messages, response);
 }
 
 async function answerQuestion(url, text, cont, question) {
@@ -152,9 +170,9 @@ async function answerQuestion(url, text, cont, question) {
     {
       role: "system",
       content:
-        "You are a question answering bot. " +
+        "You are a question answering bot. Be concise, yet informative. " +
         "I'll provide you with the content first and then a question. " +
-        "Answer the question with a brief answer. ",
+        "Use emojies if necessary.",
     },
     { role: "user", content: text },
     { role: "assistant", content: "What is the question?" },
@@ -166,14 +184,21 @@ async function answerQuestion(url, text, cont, question) {
     messages.push({ role: "user", content: question });
   }
 
-  await fetchFromOpenAI(url, messages);
+  const response = await getLLMResponse(messages);
+  await storeInteraction(
+    "qa",
+    lastInteraction && cont,
+    url,
+    messages,
+    response,
+  );
 }
 
 function useSelection() {
   return document.getElementById("selection").checked;
 }
 
-function continueConversation(){
+function continueConversation() {
   return document.getElementById("continue").checked;
 }
 
@@ -201,7 +226,7 @@ function summarize() {
 function answer(question) {
   document.getElementById("output").innerText = `Getting webpage content...`;
   let action = useSelection() ? "getSelection" : "getText";
-  let cont = continueConversation()
+  let cont = continueConversation();
 
   browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     browser.tabs.sendMessage(tabs[0].id, { action: action }, (response) => {
