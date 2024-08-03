@@ -33,10 +33,12 @@ async function streamResponse(response) {
       }
     }
   }
+
+  return output;
 }
 
-async function fetchFromOpenAI(messages) {
-  chrome.storage.local.get(
+async function fetchFromOpenAI(url, messages) {
+  browser.storage.local.get(
     {
       apiKey: "",
       model: "",
@@ -70,12 +72,38 @@ async function fetchFromOpenAI(messages) {
         },
       );
 
-      await streamResponse(response);
+      const fullResponse = await streamResponse(response);
+      await storeInteraction(model, url, messages, fullResponse);
     },
   );
 }
 
-async function summarizeText(text) {
+// Store the last n interactions with timestamp
+async function storeInteraction(model, url, messages, response) {
+  browser.storage.local.get(
+    {
+      interactions: [],
+    },
+    function (items) {
+      const interactions = items.interactions;
+      interactions.push({
+        url: url,
+        model: model,
+        messages: messages,
+        response: response,
+        timestamp: new Date().toISOString(),
+      });
+
+      if (interactions.length > 10) {
+        interactions.shift();
+      }
+
+      browser.storage.local.set({ interactions: interactions });
+    },
+  );
+}
+
+async function summarizeText(url, text) {
   const messages = [
     {
       role: "system",
@@ -87,10 +115,10 @@ async function summarizeText(text) {
     { role: "user", content: text },
   ];
 
-  await fetchFromOpenAI(messages);
+  await fetchFromOpenAI(url, messages);
 }
 
-async function answerQuestion(text, question) {
+async function answerQuestion(url, text, question) {
   const messages = [
     {
       role: "system",
@@ -104,7 +132,7 @@ async function answerQuestion(text, question) {
     { role: "user", content: question },
   ];
 
-  await fetchFromOpenAI(messages);
+  await fetchFromOpenAI(url, messages);
 }
 
 function useSelection() {
@@ -115,9 +143,9 @@ function summarize() {
   document.getElementById("output").innerText = `Getting webpage content...`;
   let action = useSelection() ? "getSelection" : "getText";
 
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    chrome.tabs.sendMessage(tabs[0].id, { action: action }, (response) => {
-      summarizeText(response.text);
+  browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    browser.tabs.sendMessage(tabs[0].id, { action: action }, (response) => {
+      summarizeText(response.url, response.text);
     });
   });
 }
@@ -126,8 +154,8 @@ function answer(question) {
   document.getElementById("output").innerText = `Getting webpage content...`;
   let action = useSelection() ? "getSelection" : "getText";
 
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    chrome.tabs.sendMessage(tabs[0].id, { action: action }, (response) => {
+  browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    browser.tabs.sendMessage(tabs[0].id, { action: action }, (response) => {
       if (
         response === undefined ||
         response.text === undefined ||
@@ -149,7 +177,7 @@ function answer(question) {
         }
       }
 
-      answerQuestion(text, question);
+      answerQuestion(response.url, text, question);
     });
   });
 }

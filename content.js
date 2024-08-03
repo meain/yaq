@@ -1,6 +1,6 @@
 let subtitleCache = {};
 
-chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
+browser.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
   if (request.action === "getText") {
     if (window.location.host == "www.youtube.com") {
       const url = new URL(window.location.href);
@@ -15,23 +15,18 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
         const subtitle = languages[0];
         const subtitles = await getSubtitles(subtitle);
         subtitleCache[videoID] = subtitles;
-        return { text: subtitles };
+        return { text: subtitles, url: window.location.href };
       } else {
-        return { text: "" };
+        return { text: "", url: window.location.href };
       }
     } else {
       let text = document.body.innerText;
-      return { text: text };
+      return { text: text, url: window.location.href };
     }
-  } else if (request.action === "getURL") {
-    return { url: window.location.href };
   } else if (request.action === "getSelection") {
-    return { text: window.getSelection().toString() };
-  } else if (request.action === "getMeta") {
     return {
-      title: document.title,
+      text: window.getSelection().toString(),
       url: window.location.href,
-      selection: window.getSelection().toString(),
     };
   }
 });
