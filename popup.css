@@ -1,0 +1,159 @@
+:root {
+    --border-radius: 3px;
+    --primary-color: #000;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    min-width: 400px;
+    height: 100%;
+}
+
+#container {
+    margin: auto;
+    padding: 10px;
+    border-radius: var(--border-radius);
+}
+
+.input-group {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--primary-color);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+}
+
+input[type="text"] {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    font-size: 14px;
+}
+
+button {
+    padding: 8px 12px;
+    border: none;
+    background-color: var(--primary-color);
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+    box-shadow: none;
+    border-bottom: 3px solid var(--primary-color);
+}
+
+button:hover {
+    background-color: #111;
+    border-bottom: 3px solid #e9ffe9;
+}
+
+#output {
+    padding: 8px;
+    background-color: #fff;
+    border-radius: var(--border-radius);
+    font-size: 14px;
+    max-width: 500px;
+    user-select: text !important; /* needed in sidebar mode */
+}
+
+.flexi {
+    display: flex;
+    flex-wrap: wrap;
+    flex-grow: 1;
+    border: none !important;
+    margin-top: 10px;
+}
+
+.flexi > button {
+    flex: 1;
+    height: 100%;
+    width: 100%;
+    min-width: 100px;
+    border-radius: var(--border-radius);
+    margin: 1px;
+    text-align: center;
+    padding: 5px 10px;
+}
+
+.mini {
+    border-top: 1px solid #ccc;
+    margin-top: 10px;
+    padding-top: 10px;
+    width: 100%;
+    display: flex;
+    align-items: start;
+    max-width: 500px;
+}
+
+.mini > button {
+    border-radius: var(--border-radius);
+    text-align: center;
+    padding: 1px 6px;
+    margin: 1px 3px;
+    height: 100%;
+}
+
+.mini > b {
+    padding: 1px 6px;
+    margin: 1px 3px;
+    flex: 1;
+}
+
+.mini-q {
+    display: flex;
+    flex-direction: column;
+}
+
+#copy {
+    display: none;
+    padding: 3px 5px;
+    border: none;
+    background-color: var(--primary-color);
+    color: white;
+    cursor: pointer;
+    font-size: 10px;
+    box-shadow: none;
+    border-bottom: none;
+}
+
+#question {
+    overflow: elipsis;
+}
+
+.checkbox-group {
+    display: flex;
+}
+
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    position: relative;
+    padding: 0 10px 0 0;
+}
+
+.checkbox-container input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.checkbox-container label {
+    position: relative;
+    cursor: pointer;
+    text-decoration: underline dotted;
+}
+
+.checkbox-container label:hover::after {
+    content: attr(data-hover-info);
+    position: absolute;
+    left: 0;
+    top: 20px;
+    background-color: #fff;
+    padding: 5px 10px;
+    border-radius: var(--border-radius);
+    border: 1px dashed #ccc;
+    min-width: 200px;
+    z-index: 10;
+}
