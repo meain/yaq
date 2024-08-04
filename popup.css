@@ -71,11 +71,13 @@ input[type="text"] {
 
 .flexi {
     display: flex;
+    flex-wrap: wrap;
     margin-top: 10px;
     width: 100%;
 }
 
 .flexi > button {
+    flex: 1;
     height: 100%;
     width: 100%;
     min-width: 100px;

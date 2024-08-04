@@ -2,6 +2,30 @@ let prevReader = null;
 let responseCache = "";
 let index = -1;
 
+const defaultButtons = {
+  "one-line": {
+    name: "One line",
+    prompt: "Summarize in one line",
+  },
+  final: {
+    name: "Final",
+    prompt: "What was the final decision or next steps.",
+  },
+  faq: {
+    name: "FAQ",
+    prompt:
+      "Generate 5 FAQ that is well answered in this along with their answers. The questions should be generic but informative and not obvious. Format them as markdown dropdowns.",
+  },
+  sentiment: {
+    name: "Sentiment",
+    prompt: "What is the sentiment of this text?",
+  },
+  unclickbait: {
+    name: "Unclickbait",
+    prompt: "What is the non-clickbait headline for this text?",
+  },
+};
+
 function showInteractionAtIndex(interactions, index) {
   if (index < interactions.length) {
     const lastMessageIndex = interactions[index].messages.length - 1;
@@ -348,6 +372,25 @@ function renderPartialHTML(partialText) {
   document.getElementById("copy").style.display = "block";
 }
 
+function renderButtons() {
+  browser.storage.local.get(
+    {
+      buttons: defaultButtons,
+    },
+    function (items) {
+      const buttons = items.buttons;
+      document.getElementById("buttons").innerHTML = "";
+      for (const [id, button] of Object.entries(buttons)) {
+        const buttonElement = document.createElement("button");
+        buttonElement.id = id;
+        buttonElement.innerText = button.name;
+        buttonElement.onclick = () => answer(button.prompt);
+        document.getElementById("buttons").appendChild(buttonElement);
+      }
+    },
+  );
+}
+
 document.addEventListener(
   "DOMContentLoaded",
   function () {
@@ -363,21 +406,8 @@ document.addEventListener(
     document.getElementById("prev").onclick = showPrev;
 
     document.getElementById("summarize").onclick = summarize;
-
-    const addClickListener = (id, text) => {
-      document.getElementById(id).onclick = () => answer(text);
-    };
-
-    // TODO: This should be addable via options page
-    addClickListener("answer", "");
-    addClickListener("one-line", "Summarize in one line");
-    addClickListener("final", "What was the final decision or next steps.");
-    addClickListener(
-      "faq",
-      "Generate 5 FAQ that is well answered in this along with their answers. The questions should be generic but informative and not obvious. Format them as markdown dropdowns.",
-    );
-
     document.getElementById("text").focus();
+    renderButtons();
 
     // Enter on text box should trigger answer
     document.getElementById("text").addEventListener("keypress", (e) => {
