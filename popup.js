@@ -294,6 +294,7 @@ function summarize() {
       ) {
         document.getElementById("output").innerText =
           "Woopsie! Unable to get the webpage content.";
+        document.getElementById("copy").style.display = "none";
         return;
       }
 
@@ -316,6 +317,7 @@ function answer(question) {
       ) {
         document.getElementById("output").innerText =
           "Woopsie! Unable to get the webpage content.";
+        document.getElementById("copy").style.display = "none";
         return;
       }
 

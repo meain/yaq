@@ -5,33 +5,35 @@
   </head>
   <body>
     <div id="container">
-      <div class="input-group primary">
-        <input type="text" id="text" placeholder="Want answers?" />
-        <button id="answer">Answer</button>
-        <button id="summarize">Summary</button>
-      </div>
-      <div class="checkbox-group">
-        <div class="checkbox-container">
-          <input type="checkbox" id="selection" />
-          <label
-            for="selection"
-            data-hover-info="Use the selected text as context for the answering"
-            >Use selection</label
-          >
+      <div class="header">
+        <div class="input-group primary">
+          <input type="text" id="text" placeholder="Want answers?" />
+          <button id="answer">Answer</button>
+          <button id="summarize">Summary</button>
         </div>
-        <div class="checkbox-container">
-          <input type="checkbox" id="continue" />
-          <label
-            for="continue"
-            data-hover-info="Continue last conversation from the same URL"
-            >Continue conversation</label
-          >
+        <div class="checkbox-group">
+          <div class="checkbox-container">
+            <input type="checkbox" id="selection" />
+            <label
+              for="selection"
+              data-hover-info="Use the selected text as context for the answering"
+              >Use selection</label
+            >
+          </div>
+          <div class="checkbox-container">
+            <input type="checkbox" id="continue" />
+            <label
+              for="continue"
+              data-hover-info="Continue last conversation from the same URL"
+              >Continue conversation</label
+            >
+          </div>
         </div>
-      </div>
-      <div class="input-group flexi">
-        <button id="one-line">One line</button>
-        <button id="final">Final</button>
-        <button id="faq">FAQ</button>
+        <div class="input-group flexi">
+          <button id="one-line">One line</button>
+          <button id="final">Final</button>
+          <button id="faq">FAQ</button>
+        </div>
       </div>
 
       <div class="mini">

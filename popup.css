@@ -9,15 +9,26 @@
 
 body {
     font-family: Arial, sans-serif;
+    font-size: 14px;
     margin: 0;
-    min-width: 400px;
-    height: 100%;
+    height: 100vh;
+    min-height: 600px;
+
+    min-width: 410px;
+
+    /* Few extra pixels so that it does not add a bottom scrollbar in
+       popup once we get a long response. */
+    max-width: 450px;
 }
 
 #container {
-    margin: auto;
-    padding: 10px;
     border-radius: var(--border-radius);
+    width: 100%;
+}
+
+.header {
+    background: #f1f1f1;
+    padding: 10px;
 }
 
 .input-group {
@@ -54,11 +65,11 @@ button:hover {
 }
 
 #output {
-    padding: 8px;
     background-color: #fff;
     border-radius: var(--border-radius);
     max-width: 500px;
     user-select: text !important; /* needed in sidebar mode */
+    padding: 10px;
 }
 
 .flexi {
@@ -67,6 +78,7 @@ button:hover {
     flex-grow: 1;
     border: none !important;
     margin-top: 10px;
+    width: 100%;
 }
 
 .flexi > button {
@@ -82,8 +94,7 @@ button:hover {
 
 .mini {
     border-top: 1px solid #ccc;
-    margin-top: 10px;
-    padding-top: 10px;
+    padding: 10px;
     width: 100%;
     display: flex;
     align-items: start;
@@ -98,15 +109,10 @@ button:hover {
     height: 100%;
 }
 
-.mini > b {
-    padding: 1px 6px;
-    margin: 1px 3px;
-    flex: 1;
-}
-
 .mini-q {
     display: flex;
     flex-direction: column;
+    margin-left: 10px;
 }
 
 #copy {
