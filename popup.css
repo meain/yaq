@@ -28,11 +28,14 @@ body {
     overflow: hidden;
 }
 
+.primary > button {
+    border-left: 1px dotted white;
+}
+
 input[type="text"] {
     flex: 1;
     padding: 8px;
     border: none;
-    font-size: 14px;
 }
 
 button {
@@ -41,7 +44,6 @@ button {
     background-color: var(--primary-color);
     color: white;
     cursor: pointer;
-    font-size: 14px;
     box-shadow: none;
     border-bottom: 3px solid var(--primary-color);
 }
@@ -55,7 +57,6 @@ button:hover {
     padding: 8px;
     background-color: #fff;
     border-radius: var(--border-radius);
-    font-size: 14px;
     max-width: 500px;
     user-select: text !important; /* needed in sidebar mode */
 }
