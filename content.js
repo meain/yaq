@@ -7,17 +7,26 @@ browser.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
       const videoID = url.searchParams.get("v");
 
       if (subtitleCache[videoID]) {
-        return { text: subtitleCache[videoID] };
+        return { text: subtitleCache[videoID], url: window.location.href };
       }
 
       const languages = await getLanguagesList(videoID);
       if (languages.length > 0) {
-        const subtitle = languages[0];
+        // Get English or English generated
+        const subtitle = languages.find(
+          (lang) =>
+            lang.language === "English" || lang.language === "English (auto-generated)"
+        );
+
+        if (!subtitle) {
+          return { text: "", url: window.location.href, error: "Oops! No English subtitles found" };
+        }
+
         const subtitles = await getSubtitles(subtitle);
         subtitleCache[videoID] = subtitles;
         return { text: subtitles, url: window.location.href };
       } else {
-        return { text: "", url: window.location.href };
+        return { text: "", url: window.location.href, error: "Oops! No subtitles found" };
       }
     } else {
       let text = document.body.innerText;

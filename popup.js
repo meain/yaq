@@ -319,8 +319,9 @@ function summarize() {
         response.text === undefined ||
         response.text === ""
       ) {
-        document.getElementById("output").innerText =
-          "Woopsie! Unable to get the webpage content.";
+        document.getElementById("output").innerText = response.error
+          ? response.error
+          : "Woopsie! Unable to get the webpage content.";
         document.getElementById("copy").style.display = "none";
         return;
       }
@@ -342,8 +343,9 @@ function answer(question) {
         response.text === undefined ||
         response.text === ""
       ) {
-        document.getElementById("output").innerText =
-          "Woopsie! Unable to get the webpage content.";
+        document.getElementById("output").innerText = response.error
+          ? response.error
+          : "Woopsie! Unable to get the webpage content.";
         document.getElementById("copy").style.display = "none";
         return;
       }
