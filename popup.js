@@ -37,8 +37,11 @@ function showNext() {
       const interactions = items.interactions;
       if (index < interactions.length - 1) {
         index++;
-        showInteractionAtIndex(interactions, index);
+      } else if (interactions.length > 0) {
+        index = 0;
       }
+
+      showInteractionAtIndex(interactions, index);
     },
   );
 }
@@ -50,7 +53,7 @@ function showPrev() {
     },
     function (items) {
       const interactions = items.interactions;
-      if (index === -1) {
+      if (index <= 0) {
         index = interactions.length - 1;
       }
 
