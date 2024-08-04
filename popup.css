@@ -14,11 +14,8 @@ body {
     height: 100vh;
     min-height: 600px;
 
-    min-width: 410px;
-
-    /* Few extra pixels so that it does not add a bottom scrollbar in
-       popup once we get a long response. */
-    max-width: 450px;
+    width: 416px;
+    overflow-y: scroll;
 }
 
 #container {
@@ -111,6 +108,9 @@ input[type="text"] {
 
 .mini button {
     border-radius: var(--border-radius);
+    background: black;
+    color: white;
+    border: none;
     text-align: center;
     padding: 1px 4px;
     margin: 0px;
