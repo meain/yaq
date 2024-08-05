@@ -45,12 +45,14 @@
     "_execute_browser_action": {
       "suggested_key": {
         "default": "Ctrl+Shift+M"
-      }
+      },
+      "description": "Open the Yaq popup"
     },
     "_execute_sidebar_action": {
       "suggested_key": {
         "default": "Alt+Shift+M"
-      }
+      },
+      "description": "Open the Yaq sidebar"
     }
   }
 }

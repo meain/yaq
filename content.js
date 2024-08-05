@@ -1,42 +1,77 @@
 let subtitleCache = {};
 
-browser.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "getText") {
     if (window.location.host == "www.youtube.com") {
       const url = new URL(window.location.href);
       const videoID = url.searchParams.get("v");
 
       if (subtitleCache[videoID]) {
-        return { text: subtitleCache[videoID], url: window.location.href };
+        sendResponse({
+          text: subtitleCache[videoID],
+          url: window.location.href,
+        });
+        return true;
       }
 
-      const languages = await getLanguagesList(videoID);
-      if (languages.length > 0) {
-        // Get English or English generated
-        const subtitle = languages.find(
-          (lang) =>
-            lang.language === "English" || lang.language === "English (auto-generated)"
-        );
+      getLanguagesList(videoID)
+        .then((languages) => {
+          if (languages.length > 0) {
+            // Get English or English generated
+            const subtitle = languages.find(
+              (lang) =>
+                lang.language === "English" ||
+                lang.language === "English (auto-generated)",
+            );
 
-        if (!subtitle) {
-          return { text: "", url: window.location.href, error: "Oops! No English subtitles found" };
-        }
+            if (!subtitle) {
+              sendResponse({
+                text: "",
+                url: window.location.href,
+                error: "Oops! No English subtitles found",
+              });
+            }
 
-        const subtitles = await getSubtitles(subtitle);
-        subtitleCache[videoID] = subtitles;
-        return { text: subtitles, url: window.location.href };
-      } else {
-        return { text: "", url: window.location.href, error: "Oops! No subtitles found" };
-      }
+            getSubtitles(subtitle)
+              .then((subtitles) => {
+                subtitleCache[videoID] = subtitles;
+                sendResponse({ text: subtitles, url: window.location.href });
+              })
+              .catch((error) => {
+                sendResponse({
+                  text: "",
+                  url: window.location.href,
+                  error: "Oops! Could not fetch subtitles",
+                });
+              });
+          } else {
+            sendResponse({
+              text: "",
+              url: window.location.href,
+              error: "Oops! No subtitles found",
+            });
+          }
+        })
+        .catch((error) => {
+          sendResponse({
+            text: "",
+            url: window.location.href,
+            error: "Oops! Could not fetch subtitles",
+          });
+        });
+
+      return true;
     } else {
       let text = document.body.innerText;
-      return { text: text, url: window.location.href };
+      sendResponse({ text: text, url: window.location.href });
+      return true;
     }
   } else if (request.action === "getSelection") {
-    return {
+    sendResponse({
       text: window.getSelection().toString(),
       url: window.location.href,
-    };
+    });
+    return true;
   }
 });
 

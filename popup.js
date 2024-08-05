@@ -53,7 +53,7 @@ function showInteractionAtIndex(interactions, index) {
 }
 
 function showNext() {
-  browser.storage.local.get(
+  chrome.storage.local.get(
     {
       interactions: [],
     },
@@ -71,7 +71,7 @@ function showNext() {
 }
 
 function showPrev() {
-  browser.storage.local.get(
+  chrome.storage.local.get(
     {
       interactions: [],
     },
@@ -156,7 +156,7 @@ function getLLMResponse(messages) {
   index = -1; // Reset index
 
   return new Promise((resolve, reject) => {
-    browser.storage.local.get(
+    chrome.storage.local.get(
       {
         apiKey: "",
         model: "",
@@ -183,7 +183,7 @@ function getLLMResponse(messages) {
 
 // Store the last n interactions with timestamp
 async function storeInteraction(kind, replace, url, messages, response) {
-  browser.storage.local.get(
+  chrome.storage.local.get(
     {
       interactions: [],
     },
@@ -217,7 +217,7 @@ async function storeInteraction(kind, replace, url, messages, response) {
         interactions.shift();
       }
 
-      browser.storage.local.set({ interactions: interactions });
+      chrome.storage.local.set({ interactions: interactions });
     },
   );
 }
@@ -225,7 +225,7 @@ async function storeInteraction(kind, replace, url, messages, response) {
 function getLastInteraction(url) {
   // Get the last interaction which is made from the same domain
   return new Promise((resolve, reject) => {
-    browser.storage.local.get(
+    chrome.storage.local.get(
       {
         interactions: [],
       },
@@ -312,8 +312,8 @@ function summarize() {
   document.getElementById("output").innerText = `Getting webpage content...`;
   let action = useSelection() ? "getSelection" : "getText";
 
-  browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    browser.tabs.sendMessage(tabs[0].id, { action: action }, (response) => {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    chrome.tabs.sendMessage(tabs[0].id, { action: action }, (response) => {
       if (
         response === undefined ||
         response.text === undefined ||
@@ -336,8 +336,8 @@ function answer(question) {
   let action = useSelection() ? "getSelection" : "getText";
   let cont = continueConversation();
 
-  browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    browser.tabs.sendMessage(tabs[0].id, { action: action }, (response) => {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    chrome.tabs.sendMessage(tabs[0].id, { action: action }, (response) => {
       if (
         response === undefined ||
         response.text === undefined ||
@@ -375,7 +375,7 @@ function renderPartialHTML(partialText) {
 }
 
 function renderButtons() {
-  browser.storage.local.get(
+  chrome.storage.local.get(
     {
       buttons: defaultButtons,
     },
