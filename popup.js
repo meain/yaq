@@ -407,7 +407,7 @@ document.addEventListener(
     document.getElementById("next").onclick = showNext;
     document.getElementById("prev").onclick = showPrev;
 
-    document.getElementById("answer").onclick = answer;
+    document.getElementById("answer").onclick = (_) => answer(); // passes event as arg
     document.getElementById("summarize").onclick = summarize;
     document.getElementById("text").focus();
     renderButtons();

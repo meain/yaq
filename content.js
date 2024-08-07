@@ -18,18 +18,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         .then((languages) => {
           if (languages.length > 0) {
             // Get English or English generated
-            const subtitle = languages.find(
+            let subtitle = languages.find(
               (lang) =>
                 lang.language === "English" ||
                 lang.language === "English (auto-generated)",
             );
 
             if (!subtitle) {
-              sendResponse({
-                text: "",
-                url: window.location.href,
-                error: "Oops! No English subtitles found",
-              });
+              // If no English, get the first one
+              subtitle = languages[0];
             }
 
             getSubtitles(subtitle)
