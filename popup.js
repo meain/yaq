@@ -101,23 +101,36 @@ async function streamResponse(response) {
   let done = false;
   let result = "";
   let output = "";
+  let remaining = false;
 
   while (!done) {
     const { value, done: doneReading } = await reader.read();
     done = doneReading;
-    result = decoder.decode(value, { stream: !done });
+    if (remaining) {
+      result += decoder.decode(value, { stream: !done });
+    } else {
+      result = decoder.decode(value, { stream: !done });
+    }
+
+    remaining = false
+
     // Process the stream as it comes in
     if (value) {
       const lines = result.split("\n");
       for (const line of lines) {
         if (line.startsWith("data: ")) {
           if (line.substring(6) == "[DONE]") break;
-          const data = JSON.parse(line.substring(6));
+          try {
+            const data = JSON.parse(line.substring(6));
 
-          if (data.choices && data.choices.length > 0) {
-            const content = data.choices[0].delta?.content || "";
-            output += content;
-            renderPartialHTML(output);
+            if (data.choices && data.choices.length > 0) {
+              const content = data.choices[0].delta?.content || "";
+              output += content;
+              renderPartialHTML(output);
+            }
+          } catch (error) {
+            remaining = true
+            result = line; // should be just the last line
           }
         }
       }
