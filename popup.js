@@ -382,6 +382,7 @@ function answer(question) {
 function renderPartialHTML(partialText) {
   responseCache = partialText;
   const converter = new showdown.Converter();
+  converter.setFlavor('github'); // use GFM
   const partialHtml = converter.makeHtml(partialText);
   document.getElementById("output").innerHTML = partialHtml;
   document.getElementById("copy").style.display = "block";
