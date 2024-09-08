@@ -24,6 +24,11 @@ const defaultButtons = [
         name: "Unclickbait",
         prompt: "What is the non-clickbait headline for this text?",
     },
+    {
+        id:"answer",
+        name: "Answer",
+        prompt: "What is the answer to the question in the title?",
+    }
 ];
 
 const serviceModels = {

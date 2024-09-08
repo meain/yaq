@@ -28,6 +28,11 @@ const defaultButtons = [
     name: "Unclickbait",
     prompt: "What is the non-clickbait headline for this text?",
   },
+  {
+    id: "answer",
+    name: "Answer",
+    prompt: "What is the answer to the question in the title?",
+  }
 ];
 
 function showInteractionAtIndex(interactions, index) {
@@ -301,8 +306,13 @@ async function answerQuestion(input, cont, question) {
     messages.push({ role: "user", content: input.text })
   }
 
+  if (input.title) {
+    messages.push({ role: "assistant", content: "What is the title of the page?" })
+    messages.push({ role: "user", content: input.title })
+  }
+
   if (input.selection) {
-    messages.push({role: "assistant", content: "Was there any specific text to focus on?"})
+    messages.push({ role: "assistant", content: "Was there any specific text to focus on?" })
     messages.push({ role: "user", content: input.selection })
   }
 
@@ -408,14 +418,18 @@ function renderButtons() {
         const buttonElement = document.createElement("button");
         buttonElement.id = button.id;
         buttonElement.innerText = button.name;
-        buttonElement.onclick = () => answer(button.prompt);
+        buttonElement.onclick = () => {
+          document.getElementById("text").value = button.prompt;
+          answer(button.prompt);
+        };
         document.getElementById("buttons").appendChild(buttonElement);
 
         // Add keyboard shortcut
         if (index < 9) {
-          document.addEventListener('keydown', function(event) {
+          document.addEventListener('keydown', function (event) {
             if (event.ctrlKey && event.key === (index + 1).toString()) {
               event.preventDefault();
+              document.getElementById("text").value = button.prompt;
               answer(button.prompt);
             }
           });

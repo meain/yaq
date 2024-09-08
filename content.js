@@ -7,13 +7,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const html = document.documentElement.outerHTML;
     let text = document.body.innerText;
     let subtitles = "";
+    const title = document.title;
 
     if (window.location.host === "www.youtube.com") {
       const videoID = new URL(url).searchParams.get("v");
 
       if (subtitleCache[videoID]) {
         subtitles = subtitleCache[videoID];
-        sendResponse({ text, html, selection, subtitles, url });
+        sendResponse({ text, html, selection, subtitles, url, title });
       } else {
         getLanguagesList(videoID)
           .then((languages) => {
@@ -28,23 +29,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 .then((fetchedSubtitles) => {
                   subtitleCache[videoID] = fetchedSubtitles;
                   subtitles = fetchedSubtitles;
-                  sendResponse({ text, html, selection, subtitles, url });
+                  sendResponse({ text, html, selection, subtitles, url, title });
                 })
                 .catch((error) => {
-                  sendResponse({ text, html, selection, subtitles, url, error: "Could not fetch subtitles" });
+                  sendResponse({ text, html, selection, subtitles, url, title, error: "Could not fetch subtitles" });
                 });
             } else {
-              sendResponse({ text, html, selection, subtitles, url, error: "No subtitles found" });
+              sendResponse({ text, html, selection, subtitles, url, title, error: "No subtitles found" });
             }
           })
           .catch((error) => {
-            sendResponse({ text, html, selection, subtitles, url, error: "Could not fetch subtitles" });
+            sendResponse({ text, html, selection, subtitles, url, title, error: "Could not fetch subtitles" });
           });
 
         return true; // Indicates that the response is sent asynchronously
       }
     } else {
-      sendResponse({ text, html, selection, subtitles, url });
+      sendResponse({ text, html, selection, subtitles, url, title });
     }
 
     return true;
