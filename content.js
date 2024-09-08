@@ -9,40 +9,44 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     let subtitles = "";
     const title = document.title;
 
-    if (window.location.host === "www.youtube.com") {
+    if (window.location.host === "www.youtube.com" && new URL(url).pathname === "/watch") {
       const videoID = new URL(url).searchParams.get("v");
 
-      if (subtitleCache[videoID]) {
-        subtitles = subtitleCache[videoID];
-        sendResponse({ text, html, selection, subtitles, url, title });
+      if (videoID) {
+        if (subtitleCache[videoID]) {
+          subtitles = subtitleCache[videoID];
+          sendResponse({ text, html, selection, subtitles, url, title });
+        } else {
+          getLanguagesList(videoID)
+            .then((languages) => {
+              if (languages.length > 0) {
+                let subtitle = languages.find(
+                  (lang) =>
+                    lang.language === "English" ||
+                    lang.language === "English (auto-generated)"
+                ) || languages[0];
+
+                getSubtitles(subtitle)
+                  .then((fetchedSubtitles) => {
+                    subtitleCache[videoID] = fetchedSubtitles;
+                    subtitles = fetchedSubtitles;
+                    sendResponse({ text, html, selection, subtitles, url, title });
+                  })
+                  .catch((error) => {
+                    sendResponse({ text, html, selection, subtitles, url, title, error: "Could not fetch subtitles" });
+                  });
+              } else {
+                sendResponse({ text, html, selection, subtitles, url, title, error: "No subtitles found" });
+              }
+            })
+            .catch((error) => {
+              sendResponse({ text, html, selection, subtitles, url, title, error: "Could not fetch subtitles" });
+            });
+
+          return true; // Indicates that the response is sent asynchronously
+        }
       } else {
-        getLanguagesList(videoID)
-          .then((languages) => {
-            if (languages.length > 0) {
-              let subtitle = languages.find(
-                (lang) =>
-                  lang.language === "English" ||
-                  lang.language === "English (auto-generated)"
-              ) || languages[0];
-
-              getSubtitles(subtitle)
-                .then((fetchedSubtitles) => {
-                  subtitleCache[videoID] = fetchedSubtitles;
-                  subtitles = fetchedSubtitles;
-                  sendResponse({ text, html, selection, subtitles, url, title });
-                })
-                .catch((error) => {
-                  sendResponse({ text, html, selection, subtitles, url, title, error: "Could not fetch subtitles" });
-                });
-            } else {
-              sendResponse({ text, html, selection, subtitles, url, title, error: "No subtitles found" });
-            }
-          })
-          .catch((error) => {
-            sendResponse({ text, html, selection, subtitles, url, title, error: "Could not fetch subtitles" });
-          });
-
-        return true; // Indicates that the response is sent asynchronously
+        sendResponse({ text, html, selection, subtitles, url, title });
       }
     } else {
       sendResponse({ text, html, selection, subtitles, url, title });
