@@ -282,8 +282,8 @@ async function summarizeText(url, text) {
   await storeInteraction("summary", false, url, messages, response);
 }
 
-async function answerQuestion(url, text, cont, question) {
-  const lastInteraction = await getLastInteraction(url);
+async function answerQuestion(input, cont, question) {
+  const lastInteraction = await getLastInteraction(input.url);
   let messages = [
     {
       role: "system",
@@ -292,10 +292,22 @@ async function answerQuestion(url, text, cont, question) {
         "I'll provide you with the content first and then a question. " +
         "Use emojies if necessary.",
     },
-    { role: "user", content: text },
-    { role: "assistant", content: "What is the question?" },
-    { role: "user", content: question },
   ];
+
+  if (input.subtitles) {
+    messages.push({ role: "user", content: input.subtitles })
+  } else {
+    // we have an option to use html(but it is much slower)
+    messages.push({ role: "user", content: input.text })
+  }
+
+  if (input.selection) {
+    messages.push({role: "assistant", content: "Was there any specific text to focus on?"})
+    messages.push({ role: "user", content: input.selection })
+  }
+
+  messages.push({ role: "assistant", content: "What is the question?" })
+  messages.push({ role: "user", content: question })
 
   if (lastInteraction && cont) {
     messages = lastInteraction.messages;
@@ -303,22 +315,18 @@ async function answerQuestion(url, text, cont, question) {
   }
 
   document.getElementById("question").innerText = "Q: " + question;
-  let purl = new URL(url);
+  let purl = new URL(input.url);
   document.getElementById("qurl").innerText = purl.hostname;
-  document.getElementById("qurl").href = url;
+  document.getElementById("qurl").href = input.url;
 
   const response = await getLLMResponse(messages);
   await storeInteraction(
     "qa",
     lastInteraction && cont,
-    url,
+    input.url,
     messages,
     response,
   );
-}
-
-function useSelection() {
-  return document.getElementById("selection").checked;
 }
 
 function continueConversation() {
@@ -327,10 +335,9 @@ function continueConversation() {
 
 function summarize() {
   document.getElementById("output").innerText = `Getting webpage content...`;
-  let action = useSelection() ? "getSelection" : "getText";
 
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    chrome.tabs.sendMessage(tabs[0].id, { action: action }, (response) => {
+    chrome.tabs.sendMessage(tabs[0].id, { action: "getContent" }, (response) => {
       if (
         response === undefined ||
         response.text === undefined ||
@@ -350,11 +357,10 @@ function summarize() {
 
 function answer(question) {
   document.getElementById("output").innerText = `Getting webpage content...`;
-  let action = useSelection() ? "getSelection" : "getText";
   let cont = continueConversation();
 
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    chrome.tabs.sendMessage(tabs[0].id, { action: action }, (response) => {
+    chrome.tabs.sendMessage(tabs[0].id, { action: "getContent" }, (response) => {
       if (
         response === undefined ||
         response.text === undefined ||
@@ -367,8 +373,6 @@ function answer(question) {
         return;
       }
 
-      const text = response.text;
-
       if (question == undefined || question === "") {
         question = document.getElementById("text").value;
         if (!question) {
@@ -378,7 +382,7 @@ function answer(question) {
         }
       }
 
-      answerQuestion(response.url, text, cont, question);
+      answerQuestion(response, cont, question);
     });
   });
 }

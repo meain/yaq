@@ -1,73 +1,52 @@
 let subtitleCache = {};
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === "getText") {
-    if (window.location.host == "www.youtube.com") {
-      const url = new URL(window.location.href);
-      const videoID = url.searchParams.get("v");
+  if (request.action === "getContent") {
+    const url = window.location.href;
+    const selection = window.getSelection().toString();
+    const html = document.documentElement.outerHTML;
+    let text = document.body.innerText;
+    let subtitles = "";
+
+    if (window.location.host === "www.youtube.com") {
+      const videoID = new URL(url).searchParams.get("v");
 
       if (subtitleCache[videoID]) {
-        sendResponse({
-          text: subtitleCache[videoID],
-          url: window.location.href,
-        });
-        return true;
-      }
+        subtitles = subtitleCache[videoID];
+        sendResponse({ text, html, selection, subtitles, url });
+      } else {
+        getLanguagesList(videoID)
+          .then((languages) => {
+            if (languages.length > 0) {
+              let subtitle = languages.find(
+                (lang) =>
+                  lang.language === "English" ||
+                  lang.language === "English (auto-generated)"
+              ) || languages[0];
 
-      getLanguagesList(videoID)
-        .then((languages) => {
-          if (languages.length > 0) {
-            // Get English or English generated
-            let subtitle = languages.find(
-              (lang) =>
-                lang.language === "English" ||
-                lang.language === "English (auto-generated)",
-            );
-
-            if (!subtitle) {
-              // If no English, get the first one
-              subtitle = languages[0];
-            }
-
-            getSubtitles(subtitle)
-              .then((subtitles) => {
-                subtitleCache[videoID] = subtitles;
-                sendResponse({ text: subtitles, url: window.location.href });
-              })
-              .catch((error) => {
-                sendResponse({
-                  text: "",
-                  url: window.location.href,
-                  error: "Oops! Could not fetch subtitles",
+              getSubtitles(subtitle)
+                .then((fetchedSubtitles) => {
+                  subtitleCache[videoID] = fetchedSubtitles;
+                  subtitles = fetchedSubtitles;
+                  sendResponse({ text, html, selection, subtitles, url });
+                })
+                .catch((error) => {
+                  sendResponse({ text, html, selection, subtitles, url, error: "Could not fetch subtitles" });
                 });
-              });
-          } else {
-            sendResponse({
-              text: "",
-              url: window.location.href,
-              error: "Oops! No subtitles found",
-            });
-          }
-        })
-        .catch((error) => {
-          sendResponse({
-            text: "",
-            url: window.location.href,
-            error: "Oops! Could not fetch subtitles",
+            } else {
+              sendResponse({ text, html, selection, subtitles, url, error: "No subtitles found" });
+            }
+          })
+          .catch((error) => {
+            sendResponse({ text, html, selection, subtitles, url, error: "Could not fetch subtitles" });
           });
-        });
 
-      return true;
+        return true; // Indicates that the response is sent asynchronously
+      }
     } else {
-      let text = document.body.innerText;
-      sendResponse({ text: text, url: window.location.href });
-      return true;
+      sendResponse({ text, html, selection, subtitles, url });
     }
-  } else if (request.action === "getSelection") {
-    sendResponse({
-      text: window.getSelection().toString(),
-      url: window.location.href,
-    });
+
     return true;
   }
 });
