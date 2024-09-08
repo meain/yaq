@@ -1,25 +1,30 @@
-const defaultButtons = {
-    "one-line": {
+const defaultButtons = [
+    {
+        id: "one-line",
         name: "One line",
         prompt: "Summarize in one line",
     },
-    final: {
+    {
+        id: "final",
         name: "Final",
         prompt: "What was the final decision or next steps.",
     },
-    faq: {
+    {
+        id: "faq",
         name: "FAQ",
         prompt: "Generate 5 FAQ that is well answered in this along with their answers. The questions should be generic but informative and not obvious. Format them as markdown dropdowns.",
     },
-    sentiment: {
+    {
+        id: "sentiment",
         name: "Sentiment",
         prompt: "What is the sentiment of this text?",
     },
-    unclickbait: {
+    {
+        id: "unclickbait",
         name: "Unclickbait",
         prompt: "What is the non-clickbait headline for this text?",
     },
-};
+];
 
 function showStatus(statusText) {
     var status = document.getElementById("status");
@@ -35,7 +40,7 @@ function save_options() {
     var apiKey = document.getElementById("key").value;
     var buttonsConfig = document.getElementById("buttons-config").value;
 
-    // Check if butons-config is valid JSON
+    // Check if buttons-config is valid JSON
     try {
         JSON.parse(buttonsConfig);
     } catch (e) {
