@@ -404,12 +404,22 @@ function renderButtons() {
     function (items) {
       const buttons = items.buttons;
       document.getElementById("buttons").innerHTML = "";
-      buttons.forEach(button => {
+      buttons.forEach((button, index) => {
         const buttonElement = document.createElement("button");
         buttonElement.id = button.id;
         buttonElement.innerText = button.name;
         buttonElement.onclick = () => answer(button.prompt);
         document.getElementById("buttons").appendChild(buttonElement);
+
+        // Add keyboard shortcut
+        if (index < 9) {
+          document.addEventListener('keydown', function(event) {
+            if (event.ctrlKey && event.key === (index + 1).toString()) {
+              event.preventDefault();
+              answer(button.prompt);
+            }
+          });
+        }
       });
     },
   );
