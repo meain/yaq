@@ -26,6 +26,11 @@ const defaultButtons = [
     },
 ];
 
+const serviceModels = {
+    openai: ["gpt-4o", "gpt-4o-mini", "gpt-4"],
+    anthropic: []
+};
+
 function showStatus(statusText) {
     var status = document.getElementById("status");
     status.textContent = statusText;
@@ -34,8 +39,20 @@ function showStatus(statusText) {
     }, 1000);
 }
 
+function populateModelDropdown(service) {
+    const modelSelect = document.getElementById("model");
+    modelSelect.innerHTML = "";
+    serviceModels[service].forEach(model => {
+        const option = document.createElement("option");
+        option.value = model;
+        option.textContent = model;
+        modelSelect.appendChild(option);
+    });
+}
+
 // Saves options to chrome.storage
 function save_options() {
+    var service = document.getElementById("service").value;
     var model = document.getElementById("model").value;
     var apiKey = document.getElementById("key").value;
     var buttonsConfig = document.getElementById("buttons-config").value;
@@ -50,6 +67,7 @@ function save_options() {
 
     chrome.storage.local.set(
         {
+            service: service,
             model: model,
             apiKey: apiKey,
             buttons: JSON.parse(buttonsConfig),
@@ -63,14 +81,16 @@ function save_options() {
 // Restores select box and checkbox state using the preferences
 // stored in chrome.storage.
 function restore_options() {
-    // Use default value color = 'red' and likesColor = true.
     chrome.storage.local.get(
         {
+            service: "openai",
             model: "gpt-4o-mini",
             apiKey: "",
             buttons: defaultButtons,
         },
         function (items) {
+            document.getElementById("service").value = items.service;
+            populateModelDropdown(items.service);
             document.getElementById("model").value = items.model;
             document.getElementById("key").value = items.apiKey;
             document.getElementById("buttons-config").value = JSON.stringify(
@@ -81,5 +101,9 @@ function restore_options() {
         },
     );
 }
+
 document.addEventListener("DOMContentLoaded", restore_options);
 document.getElementById("save").addEventListener("click", save_options);
+document.getElementById("service").addEventListener("change", function() {
+    populateModelDropdown(this.value);
+});
