@@ -16,7 +16,8 @@ const defaultButtons = [
   {
     id: "faq",
     name: "FAQ",
-    prompt: "Generate 5 FAQ that is well answered in this along with their answers. The questions should be generic but informative and not obvious. Format them as markdown dropdowns.",
+    prompt:
+      "Generate 5 FAQ that is well answered in this along with their answers. The questions should be generic but informative and not obvious. Format them as markdown dropdowns.",
   },
   {
     id: "sentiment",
@@ -32,7 +33,7 @@ const defaultButtons = [
     id: "answer",
     name: "Answer",
     prompt: "What is the answer to the question in the title?",
-  }
+  },
 ];
 
 function showInteractionAtIndex(interactions, index) {
@@ -121,7 +122,7 @@ async function streamResponse(response) {
       result = decoder.decode(value, { stream: !done });
     }
 
-    remaining = false
+    remaining = false;
 
     // Process the stream as it comes in
     if (value) {
@@ -138,7 +139,7 @@ async function streamResponse(response) {
               renderPartialHTML(output);
             }
           } catch (error) {
-            remaining = true
+            remaining = true;
             result = line; // should be just the last line
           }
         }
@@ -266,7 +267,7 @@ function getLastInteraction(url) {
   });
 }
 
-async function summarizeText(url, text) {
+async function summarizeText(url, text, title) {
   const messages = [
     {
       role: "system",
@@ -277,6 +278,14 @@ async function summarizeText(url, text) {
     },
     { role: "user", content: text },
   ];
+
+  if (title && title.length > 0) {
+    messages.push({
+      role: "assistant",
+      content: "What is the title of the page?",
+    });
+    messages.push({ role: "user", content: title });
+  }
 
   document.getElementById("question").innerText = "Summary";
   let purl = new URL(url);
@@ -300,24 +309,30 @@ async function answerQuestion(input, cont, question) {
   ];
 
   if (input.subtitles) {
-    messages.push({ role: "user", content: input.subtitles })
+    messages.push({ role: "user", content: input.subtitles });
   } else {
     // we have an option to use html(but it is much slower)
-    messages.push({ role: "user", content: input.text })
+    messages.push({ role: "user", content: input.text });
   }
 
   if (input.title) {
-    messages.push({ role: "assistant", content: "What is the title of the page?" })
-    messages.push({ role: "user", content: input.title })
+    messages.push({
+      role: "assistant",
+      content: "What is the title of the page?",
+    });
+    messages.push({ role: "user", content: input.title });
   }
 
   if (input.selection) {
-    messages.push({ role: "assistant", content: "Was there any specific text to focus on?" })
-    messages.push({ role: "user", content: input.selection })
+    messages.push({
+      role: "assistant",
+      content: "Was there any specific text to focus on?",
+    });
+    messages.push({ role: "user", content: input.selection });
   }
 
-  messages.push({ role: "assistant", content: "What is the question?" })
-  messages.push({ role: "user", content: question })
+  messages.push({ role: "assistant", content: "What is the question?" });
+  messages.push({ role: "user", content: question });
 
   if (lastInteraction && cont) {
     messages = lastInteraction.messages;
@@ -347,21 +362,29 @@ function summarize() {
   document.getElementById("output").innerText = `Getting webpage content...`;
 
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    chrome.tabs.sendMessage(tabs[0].id, { action: "getContent" }, (response) => {
-      if (
-        response === undefined ||
-        response.text === undefined ||
-        response.text === ""
-      ) {
-        document.getElementById("output").innerText = response.error
-          ? response.error
-          : "Woopsie! Unable to get the webpage content.";
-        document.getElementById("copy").style.display = "none";
-        return;
-      }
+    chrome.tabs.sendMessage(
+      tabs[0].id,
+      { action: "getContent" },
+      (response) => {
+        if (
+          response === undefined ||
+          response.text === undefined ||
+          response.text === ""
+        ) {
+          document.getElementById("output").innerText = response.error
+            ? response.error
+            : "Woopsie! Unable to get the webpage content.";
+          document.getElementById("copy").style.display = "none";
+          return;
+        }
 
-      summarizeText(response.url, response.text);
-    });
+        if (response.subtitles && response.subtitles.length > 0) {
+          summarizeText(response.url, response.subtitles, response.title);
+        } else {
+          summarizeText(response.url, response.text, response.title);
+        }
+      },
+    );
   });
 }
 
@@ -370,37 +393,41 @@ function answer(question) {
   let cont = continueConversation();
 
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    chrome.tabs.sendMessage(tabs[0].id, { action: "getContent" }, (response) => {
-      if (
-        response === undefined ||
-        response.text === undefined ||
-        response.text === ""
-      ) {
-        document.getElementById("output").innerText = response.error
-          ? response.error
-          : "Woopsie! Unable to get the webpage content.";
-        document.getElementById("copy").style.display = "none";
-        return;
-      }
-
-      if (question == undefined || question === "") {
-        question = document.getElementById("text").value;
-        if (!question) {
-          document.getElementById("output").innerText =
-            "Please provide a question";
+    chrome.tabs.sendMessage(
+      tabs[0].id,
+      { action: "getContent" },
+      (response) => {
+        if (
+          response === undefined ||
+          response.text === undefined ||
+          response.text === ""
+        ) {
+          document.getElementById("output").innerText = response.error
+            ? response.error
+            : "Woopsie! Unable to get the webpage content.";
+          document.getElementById("copy").style.display = "none";
           return;
         }
-      }
 
-      answerQuestion(response, cont, question);
-    });
+        if (question == undefined || question === "") {
+          question = document.getElementById("text").value;
+          if (!question) {
+            document.getElementById("output").innerText =
+              "Please provide a question";
+            return;
+          }
+        }
+
+        answerQuestion(response, cont, question);
+      },
+    );
   });
 }
 
 function renderPartialHTML(partialText) {
   responseCache = partialText;
   const converter = new showdown.Converter();
-  converter.setFlavor('github'); // use GFM
+  converter.setFlavor("github"); // use GFM
   const partialHtml = converter.makeHtml(partialText);
   document.getElementById("output").innerHTML = partialHtml;
   document.getElementById("copy").style.display = "block";
@@ -426,7 +453,7 @@ function renderButtons() {
 
         // Add keyboard shortcut
         if (index < 9) {
-          document.addEventListener('keydown', function (event) {
+          document.addEventListener("keydown", function (event) {
             if (event.ctrlKey && event.key === (index + 1).toString()) {
               event.preventDefault();
               document.getElementById("text").value = button.prompt;
