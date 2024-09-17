@@ -13,7 +13,7 @@ interesting use-cases. If you like this, you might also like
 
 https://github.com/user-attachments/assets/1680801a-7b0e-4564-bfa6-e5ede583a71e
 
-- Installation: Available in [FF Store](https://addons.mozilla.org/en-US/firefox/addon/yaq/) or Clone, run `make build`, load as debug addon.
+- Installation: Install from [FF Store](https://addons.mozilla.org/en-US/firefox/addon/yaq/) or [Chrome Store](https://chromewebstore.google.com/detail/yaq/bpgcocbfiepefdgpoedcdbkfpibjflka) or Clone, run `make build`, load as debug addon.
 - Configuraiton: Go to addons page, click on options/properties for Yaq.
 
 ---
