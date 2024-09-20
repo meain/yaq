@@ -48,21 +48,42 @@
         #save:hover {
             background-color: #45a049;
         }
+
+
+        #model-label{
+            cursor: pointer;
+            text-decoration: underline dotted;
+        }
+        #model-label:hover::after {
+            content: attr(data-hover-info);
+            position: absolute;
+            left: 0;
+            top: 20px;
+            background-color: #fff;
+            padding: 5px 10px;
+            border-radius: var(--border-radius);
+            border: 1px dashed #ccc;
+            min-width: 200px;
+            z-index: 10;
+        }
     </style>
 </head>
 <body>
     <h2>Extension Options</h2>
     
-    <label for="key">OpenAI API Key</label>
-    <input type="text" id="key" placeholder="sk-...">
-
     <label for="service">Service</label>
     <select id="service">
         <option value="openai">OpenAI</option>
     </select>
 
-    <label for="model">Model</label>
-    <select id="model"></select>
+    <label for="key">OpenAI API Key</label>
+    <input type="text" id="key" placeholder="sk-...">
+
+    <label for="url">OpenAI Endpoint</label>
+    <input type="text" id="url" placeholder="https://api.openai.com/v1">
+
+    <label data-hover-info="Could not fetch list of models" id="model-label" for="model">Model</label>
+    <input type="text" id="model"></input>
 
     <label for="buttons-config">Buttons Configuration</label>
     <textarea id="buttons-config"></textarea>

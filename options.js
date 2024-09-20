@@ -25,15 +25,32 @@ const defaultButtons = [
         prompt: "What is the non-clickbait headline for this text?",
     },
     {
-        id:"answer",
+        id: "answer",
         name: "Answer",
         prompt: "What is the answer to the question in the title?",
-    }
+    },
 ];
 
 const serviceModels = {
-    openai: ["gpt-4o", "gpt-4o-mini", "gpt-4"],
-    anthropic: []
+    openai: function () {
+        return new Promise((resolve, reject) => {
+            chrome.storage.local.get(
+                {
+                    openAIBaseUrl: "https://api.openai.com/v1",
+                    apiKey: "",
+                },
+                async function (items) {
+                    const req = await fetch(`${items.openAIBaseUrl}/models`, {
+                        headers: {
+                            Authorization: `Bearer ${items.apiKey}`,
+                        },
+                    });
+                    const data = await req.json();
+                    resolve(data.data.map((model) => model.id));
+                },
+            );
+        });
+    },
 };
 
 function showStatus(statusText) {
@@ -44,15 +61,14 @@ function showStatus(statusText) {
     }, 1000);
 }
 
-function populateModelDropdown(service) {
+async function populateModels(service) {
     const modelSelect = document.getElementById("model");
     modelSelect.innerHTML = "";
-    serviceModels[service].forEach(model => {
-        const option = document.createElement("option");
-        option.value = model;
-        option.textContent = model;
-        modelSelect.appendChild(option);
-    });
+    const models = await serviceModels[service]();
+    let modelStrings = "Available models: " + models.join(", ");
+    document
+        .getElementById("model-label")
+        .setAttribute("data-hover-info", modelStrings);
 }
 
 // Saves options to chrome.storage
@@ -60,6 +76,7 @@ function save_options() {
     var service = document.getElementById("service").value;
     var model = document.getElementById("model").value;
     var apiKey = document.getElementById("key").value;
+    var openAIBaseUrl = document.getElementById("url").value;
     var buttonsConfig = document.getElementById("buttons-config").value;
 
     // Check if buttons-config is valid JSON
@@ -75,10 +92,12 @@ function save_options() {
             service: service,
             model: model,
             apiKey: apiKey,
+            openAIBaseUrl: openAIBaseUrl,
             buttons: JSON.parse(buttonsConfig),
         },
-        function () {
+        async function () {
             showStatus("Options saved.");
+            await populateModels(items.service);
         },
     );
 }
@@ -92,23 +111,23 @@ function restore_options() {
             model: "gpt-4o-mini",
             apiKey: "",
             buttons: defaultButtons,
+            openAIBaseUrl: "https://api.openai.com/v1",
         },
-        function (items) {
+        async function (items) {
             document.getElementById("service").value = items.service;
-            populateModelDropdown(items.service);
+            document.getElementById("model").value = items.model;
             document.getElementById("model").value = items.model;
             document.getElementById("key").value = items.apiKey;
+            document.getElementById("url").value = items.openAIBaseUrl;
             document.getElementById("buttons-config").value = JSON.stringify(
                 items.buttons,
                 null,
                 2,
             );
+            await populateModels(items.service);
         },
     );
 }
 
 document.addEventListener("DOMContentLoaded", restore_options);
 document.getElementById("save").addEventListener("click", save_options);
-document.getElementById("service").addEventListener("change", function() {
-    populateModelDropdown(this.value);
-});
