@@ -150,7 +150,7 @@ async function streamResponse(response) {
   return output;
 }
 
-async function fetchFromOpenAI(model, apiKey, messages) {
+async function fetchFromOpenAI(openAIBaseUrl, model, apiKey, messages) {
   if (apiKey === "" || model === "") {
     document.getElementById("output").innerText =
       "Please set your OpenAI API key and model in the options page";
@@ -159,7 +159,7 @@ async function fetchFromOpenAI(model, apiKey, messages) {
 
   document.getElementById("output").innerText = `Processing using ${model}...`;
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+  const response = await fetch(openAIBaseUrl + "/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -183,10 +183,12 @@ function getLLMResponse(messages) {
       {
         apiKey: "",
         model: "",
+        openAIBaseUrl: "",
       },
       async function (items) {
         const apiKey = items.apiKey;
         const model = items.model;
+        const openAIBaseUrl = items.openAIBaseUrl;
 
         if (apiKey === "" || model === "") {
           document.getElementById("output").innerText =
@@ -197,7 +199,12 @@ function getLLMResponse(messages) {
         document.getElementById("output").innerText =
           `Processing using ${model}...`;
 
-        const response = await fetchFromOpenAI(model, apiKey, messages);
+        const response = await fetchFromOpenAI(
+          openAIBaseUrl,
+          model,
+          apiKey,
+          messages,
+        );
         resolve({ provider: "openai", model, response });
       },
     );
