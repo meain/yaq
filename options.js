@@ -97,7 +97,7 @@ function save_options() {
         },
         async function () {
             showStatus("Options saved.");
-            await populateModels(items.service);
+            await populateModels(service);
         },
     );
 }
