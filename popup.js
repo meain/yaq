@@ -89,12 +89,11 @@ function showPrev() {
       const interactions = items.interactions;
       if (index <= 0) {
         index = interactions.length - 1;
+      } else if (index < interactions.length && index > 0) {
+        index--;
       }
 
-      if (index < interactions.length && index > 0) {
-        index--;
-        showInteractionAtIndex(interactions, index);
-      }
+      showInteractionAtIndex(interactions, index);
     },
   );
 }
