@@ -28,7 +28,7 @@ body {
     height: 100vh;
     min-height: 600px;
 
-    width: 416px;
+    width: 100%;
     overflow-y: scroll;
 }
 
@@ -78,7 +78,7 @@ input[type="text"] {
 #output {
     background-color: #fff;
     border-radius: var(--border-radius);
-    max-width: 500px;
+    max-width: 100%;
     user-select: text !important; /* needed in sidebar mode */
     padding: 10px;
 }
@@ -119,7 +119,7 @@ input[type="text"] {
 .mini {
     padding: 10px;
     width: 100%;
-    max-width: 500px;
+    max-width: 100%;
 }
 
 .mini button {
