@@ -78,6 +78,7 @@ function save_options() {
     var apiKey = document.getElementById("key").value;
     var openAIBaseUrl = document.getElementById("url").value;
     var buttonsConfig = document.getElementById("buttons-config").value;
+    var keys = document.getElementById("keys").value.split(",").map(key => key.trim());
 
     // Check if buttons-config is valid JSON
     try {
@@ -94,6 +95,7 @@ function save_options() {
             apiKey: apiKey,
             openAIBaseUrl: openAIBaseUrl,
             buttons: JSON.parse(buttonsConfig),
+            keys: keys,
         },
         async function () {
             showStatus("Options saved.");
@@ -112,6 +114,7 @@ function restore_options() {
             apiKey: "",
             buttons: defaultButtons,
             openAIBaseUrl: "https://api.openai.com/v1",
+            keys: [],
         },
         async function (items) {
             document.getElementById("service").value = items.service;
@@ -124,6 +127,7 @@ function restore_options() {
                 null,
                 2,
             );
+            document.getElementById("keys").value = items.keys.join(", ");
             await populateModels(items.service);
         },
     );

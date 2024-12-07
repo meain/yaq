@@ -472,6 +472,77 @@ function renderButtons() {
   );
 }
 
+function handleModelSelection() {
+  const modelSelect = document.getElementById("model");
+  const selectedModel = modelSelect.value;
+  chrome.storage.local.set({ selectedModel: selectedModel });
+}
+
+function handleServiceSelection() {
+  const serviceSelect = document.getElementById("service");
+  const selectedService = serviceSelect.value;
+  chrome.storage.local.set({ selectedService: selectedService });
+
+  // Pull model list based on the selected service
+  populateModels(selectedService);
+}
+
+function overrideSettings() {
+  chrome.storage.local.get(
+    {
+      selectedModel: "",
+      selectedService: "",
+    },
+    function (items) {
+      const selectedModel = items.selectedModel;
+      const selectedService = items.selectedService;
+
+      if (selectedModel) {
+        document.getElementById("model").value = selectedModel;
+      }
+
+      if (selectedService) {
+        document.getElementById("service").value = selectedService;
+        populateModels(selectedService);
+      }
+    },
+  );
+}
+
+async function populateModels(service) {
+  const modelSelect = document.getElementById("model");
+  modelSelect.innerHTML = "";
+  const models = await serviceModels[service]();
+  models.forEach((model) => {
+    const option = document.createElement("option");
+    option.value = model;
+    option.text = model;
+    modelSelect.appendChild(option);
+  });
+}
+
+const serviceModels = {
+  openai: function () {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.get(
+        {
+          openAIBaseUrl: "https://api.openai.com/v1",
+          apiKey: "",
+        },
+        async function (items) {
+          const req = await fetch(`${items.openAIBaseUrl}/models`, {
+            headers: {
+              Authorization: `Bearer ${items.apiKey}`,
+            },
+          });
+          const data = await req.json();
+          resolve(data.data.map((model) => model.id));
+        },
+      );
+    });
+  },
+};
+
 document.addEventListener(
   "DOMContentLoaded",
   function () {
@@ -501,6 +572,11 @@ document.addEventListener(
         }
       }
     });
+
+    document.getElementById("model").addEventListener("change", handleModelSelection);
+    document.getElementById("service").addEventListener("change", handleServiceSelection);
+
+    overrideSettings();
   },
   false,
 );
