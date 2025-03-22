@@ -317,8 +317,8 @@ async function answerQuestion(input, cont, question) {
   if (input.subtitles) {
     messages.push({ role: "user", content: input.subtitles });
   } else {
-    // we have an option to use html(but it is much slower)
-    messages.push({ role: "user", content: input.text });
+    // Use HTML content if the toggle is enabled, otherwise use plain text
+    messages.push({ role: "user", content: useHtmlContent() ? input.html : input.text });
   }
 
   if (input.title) {
@@ -364,6 +364,10 @@ function continueConversation() {
   return document.getElementById("continue").checked;
 }
 
+function useHtmlContent() {
+  return document.getElementById("use_html").checked;
+}
+
 function summarize() {
   document.getElementById("output").innerText = `Getting webpage content...`;
 
@@ -387,7 +391,8 @@ function summarize() {
         if (response.subtitles && response.subtitles.length > 0) {
           summarizeText(response.url, response.subtitles, response.title);
         } else {
-          summarizeText(response.url, response.text, response.title);
+          const content = useHtmlContent() ? response.html : response.text;
+          summarizeText(response.url, content, response.title);
         }
       },
     );
@@ -475,6 +480,16 @@ function renderButtons() {
 document.addEventListener(
   "DOMContentLoaded",
   function () {
+    // Restore HTML preference
+    chrome.storage.local.get({ useHtml: false }, function (items) {
+      document.getElementById("use_html").checked = items.useHtml;
+    });
+
+    // Save HTML preference when changed
+    document.getElementById("use_html").addEventListener("change", function() {
+      chrome.storage.local.set({ useHtml: this.checked });
+    });
+
     document.getElementById("copy").onclick = () => {
       navigator.clipboard.writeText(responseCache);
       document.getElementById("copy").innerText = "Copied!";
@@ -485,8 +500,7 @@ document.addEventListener(
 
     document.getElementById("next").onclick = showNext;
     document.getElementById("prev").onclick = showPrev;
-
-    document.getElementById("answer").onclick = (_) => answer(); // passes event as arg
+    document.getElementById("answer").onclick = (_) => answer();
     document.getElementById("summarize").onclick = summarize;
     document.getElementById("text").focus();
     renderButtons();
@@ -502,5 +516,4 @@ document.addEventListener(
       }
     });
   },
-  false,
 );
