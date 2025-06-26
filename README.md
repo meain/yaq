@@ -20,6 +20,8 @@ https://github.com/user-attachments/assets/1680801a-7b0e-4564-bfa6-e5ede583a71e
 
 ## Installation
 
+> The versions available in the webstores might be older as it is annoying to update it
+
 - **Firefox**: Install from the [Firefox Add-ons Store](https://addons.mozilla.org/en-US/firefox/addon/yaq/)
 - **Chrome/Edge**: Install from the [Chrome Web Store](https://chromewebstore.google.com/detail/yaq/bpgcocbfiepefdgpoedcdbkfpibjflka)
 - **Manual Installation**: 
