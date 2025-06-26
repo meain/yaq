@@ -105,6 +105,9 @@ async function streamResponse(response) {
 
   const reader = response.body.getReader();
   prevReader = reader;
+  
+  // Show progress indicator when streaming begins
+  document.getElementById("progress-container").style.display = "flex";
 
   const decoder = new TextDecoder("utf-8");
   let done = false;
@@ -332,6 +335,9 @@ async function getLLMResponse(messages) {
           return;
         }
 
+        // Show progress indicator
+        document.getElementById("progress-container").style.display = "flex";
+        
         document.getElementById("output").innerText =
           `Processing using ${model}...`;
 
@@ -380,6 +386,8 @@ async function getLLMResponse(messages) {
           } else {
             // Final response without tools
             finalResponse += response.response;
+            // Hide progress indicator
+            document.getElementById("progress-container").style.display = "none";
             resolve({ provider: "openai", model, response: finalResponse });
             break;
           }
@@ -554,6 +562,8 @@ function toolsEnabled() {
 
 function summarize() {
   document.getElementById("output").innerText = `Getting webpage content...`;
+  // Hide progress indicator initially (will show when LLM starts)
+  document.getElementById("progress-container").style.display = "none";
 
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     chrome.tabs.sendMessage(
@@ -585,6 +595,8 @@ function summarize() {
 
 function answer(question) {
   document.getElementById("output").innerText = `Getting webpage content...`;
+  // Hide progress indicator initially (will show when LLM starts)
+  document.getElementById("progress-container").style.display = "none";
   let cont = continueConversation();
 
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -626,6 +638,11 @@ function renderPartialHTML(partialText) {
   const partialHtml = converter.makeHtml(partialText);
   document.getElementById("output").innerHTML = partialHtml;
   document.getElementById("copy").style.display = "block";
+  
+  // If response is complete, hide progress indicator
+  if (!prevReader) {
+    document.getElementById("progress-container").style.display = "none";
+  }
 }
 
 function renderButtons() {
@@ -664,6 +681,16 @@ function renderButtons() {
 document.addEventListener(
   "DOMContentLoaded",
   function () {
+    // Set up cancel button
+    document.getElementById("cancel-request").addEventListener("click", function() {
+      if (prevReader) {
+        prevReader.cancel();
+        prevReader = null;
+        document.getElementById("progress-container").style.display = "none";
+        document.getElementById("output").innerHTML += "<p><em>Request cancelled by user</em></p>";
+      }
+    });
+    
     // Restore preferences
     chrome.storage.local.get({ 
       useHtml: false, 

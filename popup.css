@@ -197,3 +197,49 @@ input[type="text"] {
     cursor: not-allowed;
     color: #999;
 }
+
+/* Progress indicator styles */
+.progress-container {
+    background-color: #f1f1f1;
+    border-top: 1px dotted #ccc;
+    border-bottom: 1px dotted #ccc;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.processing-text {
+    flex: 1;
+    font-weight: 500;
+}
+
+.spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #ccc;
+    border-top: 2px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+#cancel-request {
+    border-radius: var(--border-radius);
+    background: black;
+    color: white;
+    border: none;
+    text-align: center;
+    padding: 3px 6px;
+    margin: 0px;
+    cursor: pointer;
+}
+
+@keyframes progress {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(300%); }
+}
