@@ -111,6 +111,7 @@ async function streamResponse(response) {
   let result = "";
   let output = "";
   let remaining = false;
+  let toolCalls = [];
 
   while (!done) {
     const { value, done: doneReading } = await reader.read();
@@ -133,9 +134,39 @@ async function streamResponse(response) {
             const data = JSON.parse(line.substring(6));
 
             if (data.choices && data.choices.length > 0) {
-              const content = data.choices[0].delta?.content || "";
+              const delta = data.choices[0].delta;
+              
+              // Handle tool calls
+              if (delta.tool_calls) {
+                for (const toolCall of delta.tool_calls) {
+                  if (toolCall.index !== undefined) {
+                    if (!toolCalls[toolCall.index]) {
+                      toolCalls[toolCall.index] = {
+                        id: toolCall.id || "",
+                        type: toolCall.type || "function",
+                        function: {
+                          name: toolCall.function?.name || "",
+                          arguments: toolCall.function?.arguments || ""
+                        }
+                      };
+                    } else {
+                      if (toolCall.function?.name) {
+                        toolCalls[toolCall.index].function.name += toolCall.function.name;
+                      }
+                      if (toolCall.function?.arguments) {
+                        toolCalls[toolCall.index].function.arguments += toolCall.function.arguments;
+                      }
+                    }
+                  }
+                }
+              }
+
+              // Handle regular content
+              const content = delta.content || "";
               output += content;
-              renderPartialHTML(output);
+              if (output.trim()) {
+                renderPartialHTML(output);
+              }
             }
           } catch (error) {
             remaining = true;
@@ -146,7 +177,30 @@ async function streamResponse(response) {
     }
   }
 
-  return output;
+  // Return both content and tool calls
+  return {
+    response: output,
+    toolCalls: toolCalls.length > 0 ? toolCalls : null,
+    content: output
+  };
+}
+
+async function executeToolCall(toolName, args) {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      chrome.tabs.sendMessage(
+        tabs[0].id,
+        { action: "executeTool", toolName, args },
+        (response) => {
+          if (response && response.success) {
+            resolve(response.result || "Success");
+          } else {
+            reject(new Error(response?.error || "Tool execution failed"));
+          }
+        }
+      );
+    });
+  });
 }
 
 async function fetchFromOpenAI(openAIBaseUrl, model, apiKey, messages) {
@@ -156,7 +210,94 @@ async function fetchFromOpenAI(openAIBaseUrl, model, apiKey, messages) {
     return;
   }
 
-  document.getElementById("output").innerText = `Processing using ${model}...`;
+  const requestBody = {
+    model: model,
+    stream: true,
+    messages: messages,
+  };
+
+  // Add tools if enabled
+  if (toolsEnabled()) {
+    requestBody.tools = [
+      {
+        type: "function",
+        function: {
+          name: "click_element",
+          description: "Click on a page element using CSS selector",
+          parameters: {
+            type: "object",
+            properties: {
+              selector: {
+                type: "string",
+                description: "CSS selector for the element to click"
+              }
+            },
+            required: ["selector"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "scroll_to_element",
+          description: "Scroll to a page element using CSS selector",
+          parameters: {
+            type: "object",
+            properties: {
+              selector: {
+                type: "string",
+                description: "CSS selector for the element to scroll to"
+              }
+            },
+            required: ["selector"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "input_text",
+          description: "Enter text into an input field, textarea, or other text element using CSS selector",
+          parameters: {
+            type: "object",
+            properties: {
+              selector: {
+                type: "string",
+                description: "CSS selector for the input element"
+              },
+              text: {
+                type: "string",
+                description: "Text to enter into the field"
+              },
+              clear: {
+                type: "boolean",
+                description: "Whether to clear the field before entering text (default: true)"
+              }
+            },
+            required: ["selector", "text"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "navigate_to",
+          description: "Navigate to a different URL and wait for the page to load completely",
+          parameters: {
+            type: "object",
+            properties: {
+              url: {
+                type: "string",
+                description: "The URL to navigate to (can be relative or absolute)"
+              }
+            },
+            required: ["url"]
+          }
+        }
+      }
+    ];
+    requestBody.tool_choice = "auto";
+  }
 
   const response = await fetch(openAIBaseUrl + "/chat/completions", {
     method: "POST",
@@ -164,17 +305,13 @@ async function fetchFromOpenAI(openAIBaseUrl, model, apiKey, messages) {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model: model,
-      stream: true, // Enable streaming
-      messages: messages,
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   return await streamResponse(response);
 }
 
-function getLLMResponse(messages) {
+async function getLLMResponse(messages) {
   index = -1; // Reset index
 
   return new Promise((resolve, reject) => {
@@ -198,13 +335,55 @@ function getLLMResponse(messages) {
         document.getElementById("output").innerText =
           `Processing using ${model}...`;
 
-        const response = await fetchFromOpenAI(
-          openAIBaseUrl,
-          model,
-          apiKey,
-          messages,
-        );
-        resolve({ provider: "openai", model, response });
+        let currentMessages = [...messages];
+        let finalResponse = "";
+
+        // Continue conversation until we get a non-tool response
+        while (true) {
+          const response = await fetchFromOpenAI(
+            openAIBaseUrl,
+            model,
+            apiKey,
+            currentMessages,
+          );
+          
+          if (response.toolCalls && response.toolCalls.length > 0) {
+            // Add assistant message with tool calls
+            currentMessages.push({
+              role: "assistant",
+              content: response.content || "",
+              tool_calls: response.toolCalls
+            });
+
+            // Execute tools and add results
+            for (const toolCall of response.toolCalls) {
+              try {
+                const result = await executeToolCall(toolCall.function.name, JSON.parse(toolCall.function.arguments));
+                currentMessages.push({
+                  role: "tool",
+                  tool_call_id: toolCall.id,
+                  content: result
+                });
+                finalResponse += `\n\n🔧 **Tool executed**: ${toolCall.function.name}(${toolCall.function.arguments})\n**Result**: ${result}`;
+              } catch (error) {
+                currentMessages.push({
+                  role: "tool",
+                  tool_call_id: toolCall.id,
+                  content: `Error: ${error.message}`
+                });
+                finalResponse += `\n\n❌ **Tool error**: ${toolCall.function.name} - ${error.message}`;
+              }
+            }
+            
+            // Update UI with current progress
+            renderPartialHTML(finalResponse);
+          } else {
+            // Final response without tools
+            finalResponse += response.response;
+            resolve({ provider: "openai", model, response: finalResponse });
+            break;
+          }
+        }
       },
     );
   });
@@ -310,7 +489,8 @@ async function answerQuestion(input, cont, question) {
       content:
         "You are a question answering bot. Be concise, yet informative. " +
         "I'll provide you with the content first and then a question. " +
-        "Use emojies if necessary.",
+        "Use emojies if necessary." +
+        (toolsEnabled() ? " You have access to tools to interact with the page - use click_element(selector) to click elements, scroll_to_element(selector) to scroll to elements, input_text(selector, text) to enter text into form fields, and navigate_to(url) to navigate to other pages when helpful." : ""),
     },
   ];
 
@@ -366,6 +546,10 @@ function continueConversation() {
 
 function useHtmlContent() {
   return document.getElementById("use_html").checked;
+}
+
+function toolsEnabled() {
+  return document.getElementById("enable_tools").checked;
 }
 
 function summarize() {
@@ -480,14 +664,49 @@ function renderButtons() {
 document.addEventListener(
   "DOMContentLoaded",
   function () {
-    // Restore HTML preference
-    chrome.storage.local.get({ useHtml: false }, function (items) {
+    // Restore preferences
+    chrome.storage.local.get({ 
+      useHtml: false, 
+      enableTools: false 
+    }, function (items) {
       document.getElementById("use_html").checked = items.useHtml;
+      document.getElementById("enable_tools").checked = items.enableTools;
+      
+      // If tools are enabled, force HTML on and disable the checkbox
+      if (items.enableTools) {
+        document.getElementById("use_html").checked = true;
+        document.getElementById("use_html").disabled = true;
+        const htmlLabel = document.querySelector('label[for="use_html"]');
+        htmlLabel.classList.add('disabled');
+        htmlLabel.setAttribute('data-hover-info', 'Required when tools are enabled for element selection');
+      }
     });
 
-    // Save HTML preference when changed
+    // Save preferences when changed
     document.getElementById("use_html").addEventListener("change", function() {
       chrome.storage.local.set({ useHtml: this.checked });
+    });
+
+    document.getElementById("enable_tools").addEventListener("change", function() {
+      chrome.storage.local.set({ enableTools: this.checked });
+      
+      // Auto-enable HTML and disable the checkbox when tools are enabled
+      if (this.checked) {
+        document.getElementById("use_html").checked = true;
+        document.getElementById("use_html").disabled = true;
+        const htmlLabel = document.querySelector('label[for="use_html"]');
+        htmlLabel.classList.add('disabled');
+        htmlLabel.setAttribute('data-hover-info', 'Required when tools are enabled for element selection');
+        chrome.storage.local.set({ useHtml: true });
+      } else {
+        // Auto-disable HTML and re-enable the checkbox when tools are disabled
+        document.getElementById("use_html").checked = false;
+        document.getElementById("use_html").disabled = false;
+        const htmlLabel = document.querySelector('label[for="use_html"]');
+        htmlLabel.classList.remove('disabled');
+        htmlLabel.setAttribute('data-hover-info', 'Use HTML content for better structure (slower)');
+        chrome.storage.local.set({ useHtml: false });
+      }
     });
 
     document.getElementById("copy").onclick = () => {

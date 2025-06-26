@@ -186,3 +186,14 @@ input[type="text"] {
     min-width: 200px;
     z-index: 10;
 }
+
+.checkbox-container input[type="checkbox"]:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.checkbox-container label.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    color: #999;
+}
