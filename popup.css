@@ -109,7 +109,7 @@ input[type="text"] {
     color: white;
 }
 
-.closer{
+.closer {
     background-color: #f1f1f1;
     border-top: 1px dotted #ccc;
     border-bottom: 1px dotted #ccc;
@@ -224,8 +224,12 @@ input[type="text"] {
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 #cancel-request {
@@ -240,6 +244,10 @@ input[type="text"] {
 }
 
 @keyframes progress {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(300%); }
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(300%);
+    }
 }

@@ -105,7 +105,6 @@ async function streamResponse(response) {
 
   const reader = response.body.getReader();
   prevReader = reader;
-  
   // Show progress indicator when streaming begins
   document.getElementById("progress-container").style.display = "flex";
 
@@ -138,7 +137,7 @@ async function streamResponse(response) {
 
             if (data.choices && data.choices.length > 0) {
               const delta = data.choices[0].delta;
-              
+
               // Handle tool calls
               if (delta.tool_calls) {
                 for (const toolCall of delta.tool_calls) {
@@ -149,15 +148,17 @@ async function streamResponse(response) {
                         type: toolCall.type || "function",
                         function: {
                           name: toolCall.function?.name || "",
-                          arguments: toolCall.function?.arguments || ""
-                        }
+                          arguments: toolCall.function?.arguments || "",
+                        },
                       };
                     } else {
                       if (toolCall.function?.name) {
-                        toolCalls[toolCall.index].function.name += toolCall.function.name;
+                        toolCalls[toolCall.index].function.name +=
+                          toolCall.function.name;
                       }
                       if (toolCall.function?.arguments) {
-                        toolCalls[toolCall.index].function.arguments += toolCall.function.arguments;
+                        toolCalls[toolCall.index].function.arguments +=
+                          toolCall.function.arguments;
                       }
                     }
                   }
@@ -184,7 +185,7 @@ async function streamResponse(response) {
   return {
     response: output,
     toolCalls: toolCalls.length > 0 ? toolCalls : null,
-    content: output
+    content: output,
   };
 }
 
@@ -200,7 +201,7 @@ async function executeToolCall(toolName, args) {
           } else {
             reject(new Error(response?.error || "Tool execution failed"));
           }
-        }
+        },
       );
     });
   });
@@ -232,12 +233,12 @@ async function fetchFromOpenAI(openAIBaseUrl, model, apiKey, messages) {
             properties: {
               selector: {
                 type: "string",
-                description: "CSS selector for the element to click"
-              }
+                description: "CSS selector for the element to click",
+              },
             },
-            required: ["selector"]
-          }
-        }
+            required: ["selector"],
+          },
+        },
       },
       {
         type: "function",
@@ -249,55 +250,59 @@ async function fetchFromOpenAI(openAIBaseUrl, model, apiKey, messages) {
             properties: {
               selector: {
                 type: "string",
-                description: "CSS selector for the element to scroll to"
-              }
+                description: "CSS selector for the element to scroll to",
+              },
             },
-            required: ["selector"]
-          }
-        }
+            required: ["selector"],
+          },
+        },
       },
       {
         type: "function",
         function: {
           name: "input_text",
-          description: "Enter text into an input field, textarea, or other text element using CSS selector",
+          description:
+            "Enter text into an input field, textarea, or other text element using CSS selector",
           parameters: {
             type: "object",
             properties: {
               selector: {
                 type: "string",
-                description: "CSS selector for the input element"
+                description: "CSS selector for the input element",
               },
               text: {
                 type: "string",
-                description: "Text to enter into the field"
+                description: "Text to enter into the field",
               },
               clear: {
                 type: "boolean",
-                description: "Whether to clear the field before entering text (default: true)"
-              }
+                description:
+                  "Whether to clear the field before entering text (default: true)",
+              },
             },
-            required: ["selector", "text"]
-          }
-        }
+            required: ["selector", "text"],
+          },
+        },
       },
       {
         type: "function",
         function: {
           name: "navigate_to",
-          description: "Navigate to a different URL and wait for the page to load completely",
+          description:
+            "Navigate to a different URL and wait for the page to load completely",
           parameters: {
             type: "object",
             properties: {
               url: {
                 type: "string",
-                description: "The URL to navigate to (can be relative or absolute)"
-              }
+                description:
+                  "The URL to navigate to (can be relative or absolute)",
+              },
             },
-            required: ["url"]
-          }
-        }
-      }
+            required: ["url"],
+          },
+        },
+      },
     ];
     requestBody.tool_choice = "auto";
   }
@@ -337,7 +342,7 @@ async function getLLMResponse(messages) {
 
         // Show progress indicator
         document.getElementById("progress-container").style.display = "flex";
-        
+
         document.getElementById("output").innerText =
           `Processing using ${model}...`;
 
@@ -352,42 +357,46 @@ async function getLLMResponse(messages) {
             apiKey,
             currentMessages,
           );
-          
+
           if (response.toolCalls && response.toolCalls.length > 0) {
             // Add assistant message with tool calls
             currentMessages.push({
               role: "assistant",
               content: response.content || "",
-              tool_calls: response.toolCalls
+              tool_calls: response.toolCalls,
             });
 
             // Execute tools and add results
             for (const toolCall of response.toolCalls) {
               try {
-                const result = await executeToolCall(toolCall.function.name, JSON.parse(toolCall.function.arguments));
+                const result = await executeToolCall(
+                  toolCall.function.name,
+                  JSON.parse(toolCall.function.arguments),
+                );
                 currentMessages.push({
                   role: "tool",
                   tool_call_id: toolCall.id,
-                  content: result
+                  content: result,
                 });
                 finalResponse += `\n\n🔧 **Tool executed**: ${toolCall.function.name}(${toolCall.function.arguments})\n**Result**: ${result}`;
               } catch (error) {
                 currentMessages.push({
                   role: "tool",
                   tool_call_id: toolCall.id,
-                  content: `Error: ${error.message}`
+                  content: `Error: ${error.message}`,
                 });
                 finalResponse += `\n\n❌ **Tool error**: ${toolCall.function.name} - ${error.message}`;
               }
             }
-            
+
             // Update UI with current progress
             renderPartialHTML(finalResponse);
           } else {
             // Final response without tools
             finalResponse += response.response;
             // Hide progress indicator
-            document.getElementById("progress-container").style.display = "none";
+            document.getElementById("progress-container").style.display =
+              "none";
             resolve({ provider: "openai", model, response: finalResponse });
             break;
           }
@@ -498,7 +507,9 @@ async function answerQuestion(input, cont, question) {
         "You are a question answering bot. Be concise, yet informative. " +
         "I'll provide you with the content first and then a question. " +
         "Use emojies if necessary." +
-        (toolsEnabled() ? " You have access to tools to interact with the page - use click_element(selector) to click elements, scroll_to_element(selector) to scroll to elements, input_text(selector, text) to enter text into form fields, and navigate_to(url) to navigate to other pages when helpful." : ""),
+        (toolsEnabled()
+          ? " You have access to tools to interact with the page - use click_element(selector) to click elements, scroll_to_element(selector) to scroll to elements, input_text(selector, text) to enter text into form fields, and navigate_to(url) to navigate to other pages when helpful."
+          : ""),
     },
   ];
 
@@ -506,7 +517,10 @@ async function answerQuestion(input, cont, question) {
     messages.push({ role: "user", content: input.subtitles });
   } else {
     // Use HTML content if the toggle is enabled, otherwise use plain text
-    messages.push({ role: "user", content: useHtmlContent() ? input.html : input.text });
+    messages.push({
+      role: "user",
+      content: useHtmlContent() ? input.html : input.text,
+    });
   }
 
   if (input.title) {
@@ -638,7 +652,7 @@ function renderPartialHTML(partialText) {
   const partialHtml = converter.makeHtml(partialText);
   document.getElementById("output").innerHTML = partialHtml;
   document.getElementById("copy").style.display = "block";
-  
+
   // If response is complete, hide progress indicator
   if (!prevReader) {
     document.getElementById("progress-container").style.display = "none";
@@ -678,88 +692,102 @@ function renderButtons() {
   );
 }
 
-document.addEventListener(
-  "DOMContentLoaded",
-  function () {
-    // Set up cancel button
-    document.getElementById("cancel-request").addEventListener("click", function() {
+document.addEventListener("DOMContentLoaded", function () {
+  // Set up cancel button
+  document
+    .getElementById("cancel-request")
+    .addEventListener("click", function () {
       if (prevReader) {
         prevReader.cancel();
         prevReader = null;
         document.getElementById("progress-container").style.display = "none";
-        document.getElementById("output").innerHTML += "<p><em>Request cancelled by user</em></p>";
+        document.getElementById("output").innerHTML +=
+          "<p><em>Request cancelled by user</em></p>";
       }
     });
-    
-    // Restore preferences
-    chrome.storage.local.get({ 
-      useHtml: false, 
-      enableTools: false 
-    }, function (items) {
+
+  // Restore preferences
+  chrome.storage.local.get(
+    {
+      useHtml: false,
+      enableTools: false,
+    },
+    function (items) {
       document.getElementById("use_html").checked = items.useHtml;
       document.getElementById("enable_tools").checked = items.enableTools;
-      
+
       // If tools are enabled, force HTML on and disable the checkbox
       if (items.enableTools) {
         document.getElementById("use_html").checked = true;
         document.getElementById("use_html").disabled = true;
         const htmlLabel = document.querySelector('label[for="use_html"]');
-        htmlLabel.classList.add('disabled');
-        htmlLabel.setAttribute('data-hover-info', 'Required when tools are enabled for element selection');
+        htmlLabel.classList.add("disabled");
+        htmlLabel.setAttribute(
+          "data-hover-info",
+          "Required when tools are enabled for element selection",
+        );
       }
-    });
+    },
+  );
 
-    // Save preferences when changed
-    document.getElementById("use_html").addEventListener("change", function() {
-      chrome.storage.local.set({ useHtml: this.checked });
-    });
+  // Save preferences when changed
+  document.getElementById("use_html").addEventListener("change", function () {
+    chrome.storage.local.set({ useHtml: this.checked });
+  });
 
-    document.getElementById("enable_tools").addEventListener("change", function() {
+  document
+    .getElementById("enable_tools")
+    .addEventListener("change", function () {
       chrome.storage.local.set({ enableTools: this.checked });
-      
+
       // Auto-enable HTML and disable the checkbox when tools are enabled
       if (this.checked) {
         document.getElementById("use_html").checked = true;
         document.getElementById("use_html").disabled = true;
         const htmlLabel = document.querySelector('label[for="use_html"]');
-        htmlLabel.classList.add('disabled');
-        htmlLabel.setAttribute('data-hover-info', 'Required when tools are enabled for element selection');
+        htmlLabel.classList.add("disabled");
+        htmlLabel.setAttribute(
+          "data-hover-info",
+          "Required when tools are enabled for element selection",
+        );
         chrome.storage.local.set({ useHtml: true });
       } else {
         // Auto-disable HTML and re-enable the checkbox when tools are disabled
         document.getElementById("use_html").checked = false;
         document.getElementById("use_html").disabled = false;
         const htmlLabel = document.querySelector('label[for="use_html"]');
-        htmlLabel.classList.remove('disabled');
-        htmlLabel.setAttribute('data-hover-info', 'Use HTML content for better structure (slower)');
+        htmlLabel.classList.remove("disabled");
+        htmlLabel.setAttribute(
+          "data-hover-info",
+          "Use HTML content for better structure (slower)",
+        );
         chrome.storage.local.set({ useHtml: false });
       }
     });
 
-    document.getElementById("copy").onclick = () => {
-      navigator.clipboard.writeText(responseCache);
-      document.getElementById("copy").innerText = "Copied!";
-      setTimeout(() => {
-        document.getElementById("copy").innerText = "Copy response";
-      }, 2000);
-    };
+  document.getElementById("copy").onclick = () => {
+    navigator.clipboard.writeText(responseCache);
+    document.getElementById("copy").innerText = "Copied!";
+    setTimeout(() => {
+      document.getElementById("copy").innerText = "Copy response";
+    }, 2000);
+  };
 
-    document.getElementById("next").onclick = showNext;
-    document.getElementById("prev").onclick = showPrev;
-    document.getElementById("answer").onclick = (_) => answer();
-    document.getElementById("summarize").onclick = summarize;
-    document.getElementById("text").focus();
-    renderButtons();
+  document.getElementById("next").onclick = showNext;
+  document.getElementById("prev").onclick = showPrev;
+  document.getElementById("answer").onclick = (_) => answer();
+  document.getElementById("summarize").onclick = summarize;
+  document.getElementById("text").focus();
+  renderButtons();
 
-    // Enter on text box should trigger answer
-    document.getElementById("text").addEventListener("keypress", (e) => {
-      if (e.key === "Enter") {
-        if (e.shiftKey) {
-          summarize();
-        } else {
-          answer();
-        }
+  // Enter on text box should trigger answer
+  document.getElementById("text").addEventListener("keypress", (e) => {
+    if (e.key === "Enter") {
+      if (e.shiftKey) {
+        summarize();
+      } else {
+        answer();
       }
-    });
-  },
-);
+    }
+  });
+});

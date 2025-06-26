@@ -5,18 +5,11 @@
   "manifest_version": 3,
   "content_scripts": [
     {
-      "matches": [
-        "https://*/*"
-      ],
-      "js": [
-        "content.js"
-      ]
+      "matches": ["https://*/*"],
+      "js": ["content.js"]
     }
   ],
-  "permissions": [
-    "activeTab",
-    "storage"
-  ],
+  "permissions": ["activeTab", "storage"],
   "background": {
     "scripts": ["background.js"]
   },

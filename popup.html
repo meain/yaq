@@ -1,8 +1,8 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
@@ -39,64 +39,70 @@
             >
           </div>
         </div>
-        <div id="buttons" class="flexi">
-        </div>
+        <div id="buttons" class="flexi"></div>
       </div>
-      
-      <!-- Progress indicator -->
-      <div id="progress-container" class="progress-container" style="display: none;">
-        <div class="spinner"></div>
-        <div class="processing-text">Processing...</div>
-        <button id="cancel-request">Cancel</button>
+    </div>
+
+    <!-- Progress indicator -->
+    <div
+      id="progress-container"
+      class="progress-container"
+      style="display: none"
+    >
+      <div class="spinner"></div>
+      <div class="processing-text">Processing...</div>
+      <button id="cancel-request">Cancel</button>
+    </div>
+
+    <!-- It is stupid, but it works -->
+    <details class="closer">
+      <summary>History browser</summary>
+      <div class="mini">
+        <button id="prev">&lt;</button>
+        <button id="next">&gt;</button>
+        <a id="qurl"></a>
+        <br />
+        <b id="question"></b>
+      </div>
+    </details>
+
+    <div id="output">
+      <div>
+        <h2>Yaq</h2>
+        <p>Summarize or answer questions about any webpage.</p>
       </div>
 
-      <!-- It is stupid, but it works -->
-      <details class="closer">
-        <summary>History browser</summary>
-        <div class="mini">
-          <button id="prev">&lt;</button>
-          <button id="next">&gt;</button>
-          <a id="qurl"></a>
-          <br />
-          <b id="question"></b>
-        </div>
-      </details>
+      <div>
+        <h4>Use cases:</h4>
+        <ul>
+          <li>Summarize blogs or news articles</li>
+          <li>Answer questions about product pages or YouTube videos</li>
+          <li>Inquire about GitHub issues or Linear tickets</li>
+          <li>Ask about currently open files in GitHub</li>
+          <li>Get assistance in reviewing GitHub PRs</li>
+        </ul>
 
-      <div id="output">
-        <div>
-          <h2>Yaq</h2>
-          <p>Summarize or answer questions about any webpage.</p>
-        </div>
+        <h4>Shortcuts:</h4>
+        <ul>
+          <li><kbd>Enter</kbd> to answer</li>
+          <li><kbd>Shift</kbd> + <kbd>Enter</kbd> to summarize</li>
+          <li>
+            <kbd>Ctrl/Cmd</kbd> + <kbd>Shift</kbd> + <kbd>M</kbd> to open popup
+          </li>
+        </ul>
 
-        <div>
-          <h4>Use cases:</h4>
-          <ul>
-            <li>Summarize blogs or news articles</li>
-            <li>Answer questions about product pages or YouTube videos</li>
-            <li>Inquire about GitHub issues or Linear tickets</li>
-            <li>Ask about currently open files in GitHub</li>
-            <li>Get assistance in reviewing GitHub PRs</li>
-          </ul>
-
-          <h4>Shortcuts:</h4>
-          <ul>
-            <li><kbd>Enter</kbd> to answer</li>
-            <li><kbd>Shift</kbd> + <kbd>Enter</kbd> to summarize</li>
-            <li><kbd>Ctrl/Cmd</kbd> + <kbd>Shift</kbd> + <kbd>M</kbd> to open popup</li>
-          </ul>
-
-          <h4>Tips:</h4>
-          <ul>
-            <li>Customize buttons in plugin settings</li>
-            <li>Use <kbd>Ctrl</kbd> + number to trigger buttons</li>
-            <li>Experiment with different prompts</li>
-            <li>Use 'Continue conversation' for follow-ups</li>
-            <li>Select specific text for focused answers</li>
-            <li>YouTube responses use video subtitles</li>
-            <li>Browse history with 'History browser'</li>
-            <li>Enable tools to let AI interact with page elements</li>
-          </ul>
-        </div>
+        <h4>Tips:</h4>
+        <ul>
+          <li>Customize buttons in plugin settings</li>
+          <li>Use <kbd>Ctrl</kbd> + number to trigger buttons</li>
+          <li>Experiment with different prompts</li>
+          <li>Use 'Continue conversation' for follow-ups</li>
+          <li>Select specific text for focused answers</li>
+          <li>YouTube responses use video subtitles</li>
+          <li>Browse history with 'History browser'</li>
+          <li>Enable tools to let AI interact with page elements</li>
+        </ul>
+      </div>
     </div>
     <button id="copy">Copy response</button>
     <script src="popup.js"></script>
