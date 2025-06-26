@@ -4,7 +4,7 @@
 
 Yaq is a powerful browser extension that leverages Large Language Models to help you interact with web content in smarter ways. Ask questions about any webpage, summarize content, extract insights from YouTube videos, and more—all without leaving your browser.
 
-![Demo](https://github.com/user-attachments/assets/1680801a-7b0e-4564-bfa6-e5ede583a71e)
+https://github.com/user-attachments/assets/1680801a-7b0e-4564-bfa6-e5ede583a71e
 
 ## Features
 
