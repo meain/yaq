@@ -5,10 +5,9 @@ const defaultButtons = [
     prompt: "Give me a TL;DR (too long; didn't read) version in 1-2 sentences.",
   },
   {
-    id: "context",
-    name: "Context",
-    prompt:
-      "What background knowledge or context is helpful to better understand this content?",
+    id: "answerit",
+    name: "Answer It",
+    prompt: "What is the answer to the question in the title?",
   },
   {
     id: "unclickbait",
@@ -16,9 +15,10 @@ const defaultButtons = [
     prompt: "What is the non-clickbait headline for this text?",
   },
   {
-    id: "answerit",
-    name: "Answer It",
-    prompt: "What is the answer to the question in the title?",
+    id: "context",
+    name: "Context",
+    prompt:
+      "What background knowledge or context is helpful to better understand this content?",
   },
 ];
 
