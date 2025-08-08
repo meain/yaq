@@ -4,35 +4,51 @@ let index = -1;
 
 const defaultButtons = [
   {
-    id: "one-line",
-    name: "One line",
-    prompt: "Summarize in one line",
-  },
-  {
-    id: "final",
-    name: "Final",
-    prompt: "What was the final decision or next steps.",
-  },
-  {
-    id: "faq",
-    name: "FAQ",
+    id: "summary",
+    name: "Summary",
     prompt:
-      "Generate 5 FAQ that is well answered in this along with their answers. The questions should be generic but informative and not obvious. Format them as markdown dropdowns.",
+      "Provide a concise summary of this content, highlighting the main points and key takeaways.",
   },
   {
-    id: "sentiment",
-    name: "Sentiment",
-    prompt: "What is the sentiment of this text?",
+    id: "key-points",
+    name: "Key Points",
+    prompt:
+      "Extract the 3-5 most important points from this content as a bulleted list.",
   },
   {
-    id: "unclickbait",
-    name: "Unclickbait",
-    prompt: "What is the non-clickbait headline for this text?",
+    id: "explain",
+    name: "Explain",
+    prompt:
+      "Explain this content in simple terms, as if you're teaching it to someone who's new to the topic.",
   },
   {
-    id: "answer",
-    name: "Answer",
-    prompt: "What is the answer to the question in the title?",
+    id: "tldr",
+    name: "TL;DR",
+    prompt: "Give me a TL;DR (too long; didn't read) version in 1-2 sentences.",
+  },
+  {
+    id: "questions",
+    name: "Questions",
+    prompt:
+      "Generate 3-5 thoughtful questions that this content answers or raises.",
+  },
+  {
+    id: "action-items",
+    name: "Action Items",
+    prompt:
+      "What are the actionable takeaways or next steps mentioned in this content?",
+  },
+  {
+    id: "context",
+    name: "Context",
+    prompt:
+      "What background knowledge or context is helpful to better understand this content?",
+  },
+  {
+    id: "critique",
+    name: "Critique",
+    prompt:
+      "What are the strengths and potential weaknesses or gaps in this content?",
   },
 ];
 

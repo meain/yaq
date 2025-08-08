@@ -1,24 +1,14 @@
 const defaultButtons = [
   {
-    id: "one-line",
-    name: "One line",
-    prompt: "Summarize in one line",
+    id: "tldr",
+    name: "TL;DR",
+    prompt: "Give me a TL;DR (too long; didn't read) version in 1-2 sentences.",
   },
   {
-    id: "final",
-    name: "Final",
-    prompt: "What was the final decision or next steps.",
-  },
-  {
-    id: "faq",
-    name: "FAQ",
+    id: "context",
+    name: "Context",
     prompt:
-      "Generate 5 FAQ that is well answered in this along with their answers. The questions should be generic but informative and not obvious. Format them as markdown dropdowns.",
-  },
-  {
-    id: "sentiment",
-    name: "Sentiment",
-    prompt: "What is the sentiment of this text?",
+      "What background knowledge or context is helpful to better understand this content?",
   },
   {
     id: "unclickbait",
@@ -26,8 +16,8 @@ const defaultButtons = [
     prompt: "What is the non-clickbait headline for this text?",
   },
   {
-    id: "answer",
-    name: "Answer",
+    id: "answerit",
+    name: "Answer It",
     prompt: "What is the answer to the question in the title?",
   },
 ];
