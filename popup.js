@@ -1,5 +1,6 @@
 let prevReader = null;
 let responseCache = "";
+let aiResponseOnly = ""; // Store only AI response for copy functionality
 let index = -1;
 
 const defaultButtons = [
@@ -364,6 +365,7 @@ async function getLLMResponse(messages) {
 
         let currentMessages = [...messages];
         let finalResponse = "";
+        let toolCallsHtml = "";
 
         // Continue conversation until we get a non-tool response
         while (true) {
@@ -394,25 +396,51 @@ async function getLLMResponse(messages) {
                   tool_call_id: toolCall.id,
                   content: result,
                 });
-                finalResponse += `\n\n🔧 **Tool executed**: ${toolCall.function.name}(${toolCall.function.arguments})\n**Result**: ${result}`;
+
+                // Add to tool calls HTML with simpler formatting
+                const args = JSON.parse(toolCall.function.arguments);
+                const argsDisplay = Object.entries(args)
+                  .map(([key, value]) => `"${value}"`)
+                  .join(", ");
+
+                toolCallsHtml += `
+                  <div class="tool-call">
+                    🔧 ${result}
+                  </div>
+                `;
               } catch (error) {
                 currentMessages.push({
                   role: "tool",
                   tool_call_id: toolCall.id,
                   content: `Error: ${error.message}`,
                 });
-                finalResponse += `\n\n❌ **Tool error**: ${toolCall.function.name} - ${error.message}`;
+
+                const args = JSON.parse(toolCall.function.arguments);
+                const argsDisplay = Object.entries(args)
+                  .map(([key, value]) => `"${value}"`)
+                  .join(", ");
+
+                toolCallsHtml += `
+                  <div class="tool-call error">
+                    ❌ ${toolCall.function.name}(${argsDisplay}) → Error: ${error.message}
+                  </div>
+                `;
               }
             }
 
-            // Update UI with current progress
-            renderPartialHTML(finalResponse);
+            // Update UI with current progress (show tool calls but don't include in AI response)
+            renderWithToolCalls("", toolCallsHtml);
           } else {
             // Final response without tools
-            finalResponse += response.response;
+            finalResponse = response.response;
+            aiResponseOnly = finalResponse; // Store clean AI response for copy
             // Hide progress indicator
             document.getElementById("progress-container").style.display =
               "none";
+
+            // Render final response with any tool calls that were executed
+            renderWithToolCalls(finalResponse, toolCallsHtml);
+
             resolve({ provider: "openai", model, response: finalResponse });
             break;
           }
@@ -663,11 +691,47 @@ function answer(question) {
 
 function renderPartialHTML(partialText) {
   responseCache = partialText;
+  aiResponseOnly = partialText; // Update AI-only response for copy
   const converter = new showdown.Converter();
   converter.setFlavor("github"); // use GFM
   const partialHtml = converter.makeHtml(partialText);
   document.getElementById("output").innerHTML = partialHtml;
   document.getElementById("copy").style.display = "block";
+
+  // If response is complete, hide progress indicator
+  if (!prevReader) {
+    document.getElementById("progress-container").style.display = "none";
+  }
+}
+
+function renderWithToolCalls(aiResponse, toolCallsHtml) {
+  // Update the cache with full content for display purposes
+  responseCache = aiResponse;
+  aiResponseOnly = aiResponse; // Store clean AI response for copy
+
+  const converter = new showdown.Converter();
+  converter.setFlavor("github"); // use GFM
+
+  let fullHtml = "";
+
+  // Add tool calls section if there are any
+  if (toolCallsHtml) {
+    fullHtml += `<div class="tool-calls-section">
+      ${toolCallsHtml}
+    </div>`;
+  }
+
+  // Add AI response if there is any
+  if (aiResponse && aiResponse.trim()) {
+    const aiHtml = converter.makeHtml(aiResponse);
+    fullHtml += aiHtml;
+  } else if (toolCallsHtml) {
+    // If we only have tool calls, show a message indicating processing
+    fullHtml += `<p><em>Tool execution completed. Waiting for assistant response...</em></p>`;
+  }
+
+  document.getElementById("output").innerHTML = fullHtml || "Processing...";
+  document.getElementById("copy").style.display = aiResponse ? "block" : "none";
 
   // If response is complete, hide progress indicator
   if (!prevReader) {
@@ -782,7 +846,8 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
   document.getElementById("copy").onclick = () => {
-    navigator.clipboard.writeText(responseCache);
+    // Copy only the AI response, not the tool calls
+    navigator.clipboard.writeText(aiResponseOnly || responseCache);
     document.getElementById("copy").innerText = "Copied!";
     setTimeout(() => {
       document.getElementById("copy").innerText = "Copy response";

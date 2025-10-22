@@ -251,3 +251,23 @@ input[type="text"] {
         transform: translateX(300%);
     }
 }
+
+/* Tool calls styling */
+.tool-calls-section {
+    margin-bottom: 15px;
+    padding: 8px 12px;
+    background-color: #f8f9fa;
+    border-left: 3px solid #dfdfdf;
+    border-radius: var(--border-radius);
+    font-size: 13px;
+}
+
+.tool-call {
+    margin: 4px 0;
+    font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', 'Menlo', monospace;
+    color: #24292e;
+}
+
+.tool-call.error {
+    color: #cf222e;
+}
