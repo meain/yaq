@@ -509,6 +509,14 @@ body {
     border: 1px solid var(--border);
 }
 
+/* === Custom widget (inside assistant bubble) === */
+.custom-widget {
+    margin: 6px 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
 /* === Tool call display (inside assistant bubble) === */
 .tool-call-inline {
     margin: 6px 0;

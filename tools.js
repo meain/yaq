@@ -81,6 +81,29 @@ const TOOLS = [
   },
 ];
 
+const WIDGET_TOOLS = [
+  {
+    name: "render_custom_widget",
+    description:
+      "Render rich custom HTML and CSS directly in the chat as an inline widget. Use this to display tables, charts, styled lists, visual summaries, or any content that benefits from custom formatting beyond markdown. The CSS is scoped to the widget and won't affect the rest of the UI.",
+    parameters: {
+      type: "object",
+      properties: {
+        html: {
+          type: "string",
+          description: "HTML markup to render in the widget",
+        },
+        css: {
+          type: "string",
+          description:
+            "CSS rules scoped to this widget (optional). Styles are isolated and won't leak outside the widget.",
+        },
+      },
+      required: ["html"],
+    },
+  },
+];
+
 const PROMPT_TOOLS = [
   {
     name: "get_quick_prompts",
@@ -137,8 +160,8 @@ const YOUTUBE_TOOLS = [
 // Convert canonical tools to OpenAI format
 function getToolsOpenAI(isYouTube) {
   const tools = isYouTube
-    ? [...TOOLS, ...PROMPT_TOOLS, ...YOUTUBE_TOOLS]
-    : [...TOOLS, ...PROMPT_TOOLS];
+    ? [...TOOLS, ...WIDGET_TOOLS, ...PROMPT_TOOLS, ...YOUTUBE_TOOLS]
+    : [...TOOLS, ...WIDGET_TOOLS, ...PROMPT_TOOLS];
   return tools.map((tool) => ({
     type: "function",
     function: {
@@ -152,8 +175,8 @@ function getToolsOpenAI(isYouTube) {
 // Convert canonical tools to Anthropic format
 function getToolsAnthropic(isYouTube) {
   const tools = isYouTube
-    ? [...TOOLS, ...PROMPT_TOOLS, ...YOUTUBE_TOOLS]
-    : [...TOOLS, ...PROMPT_TOOLS];
+    ? [...TOOLS, ...WIDGET_TOOLS, ...PROMPT_TOOLS, ...YOUTUBE_TOOLS]
+    : [...TOOLS, ...WIDGET_TOOLS, ...PROMPT_TOOLS];
   return tools.map((tool) => ({
     name: tool.name,
     description: tool.description,

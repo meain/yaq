@@ -73,6 +73,7 @@ The plain text content of the current page is provided in the first message. For
 - exec_javascript(code): Run JavaScript on the page. The user will be asked to confirm unless auto-approve is on. Keep code minimal.
 - add_css(css): Inject CSS styles into the page. Returns an ID for later removal via remove_css.
 - remove_css(id): Remove previously injected CSS by its ID.
+- render_custom_widget(html, css?): Render rich custom HTML/CSS inline in the chat as a widget. CSS is scoped and won't leak. **Only use this if absolutely necessary** — prefer markdown for most responses. Reserve this for content that truly cannot be expressed in markdown, such as interactive elements, complex visual layouts, or styled diagrams. The chat window is small (~400px wide), so keep widget layouts compact.
 - get_quick_prompts(): List the current quick prompt pills.
 - set_quick_prompts(prompts): Replace all quick prompt pills with a new list.`;
 
@@ -83,6 +84,7 @@ The plain text content of the current page is provided in the first message. For
   prompt += `
 
 ## Guidelines
+- You are running inside a small browser extension popup window. Keep responses compact and avoid overly wide layouts.
 - Be concise and direct.
 - Answer from the provided page text first; use tools only when needed.
 - **Before running exec_javascript, ALWAYS use get_page_outline and/or read_html first** to find the correct selectors, element structure, and attributes. Never guess at selectors or class names — look them up. The page text does NOT contain this information.
@@ -241,6 +243,23 @@ function showJsConfirmation(code) {
   });
 }
 
+// Render a custom widget (HTML + CSS) inside an assistant bubble using shadow DOM
+function renderCustomWidget(bubble, html, css) {
+  const container = document.createElement("div");
+  container.className = "custom-widget";
+  const shadow = container.attachShadow({ mode: "open" });
+  if (css) {
+    const style = document.createElement("style");
+    style.textContent = css;
+    shadow.appendChild(style);
+  }
+  const wrapper = document.createElement("div");
+  wrapper.innerHTML = html;
+  shadow.appendChild(wrapper);
+  bubble.appendChild(container);
+  scrollChatToBottom();
+}
+
 // Build a map of tool call ID -> tool result from the message history
 function buildToolResultMap(messages) {
   const map = {};
@@ -293,12 +312,16 @@ function renderConversation(messages) {
           if (block.type === "text" && block.text.trim()) {
             updateAssistantBubble(bubble, block.text);
           } else if (block.type === "tool_use") {
-            const result = toolResults[block.id];
-            appendToolCallDisplay(
-              bubble, block.name, block.input || {},
-              result ? result.content : "(no result)",
-              result ? result.isError : false,
-            );
+            if (block.name === "render_custom_widget") {
+              renderCustomWidget(bubble, (block.input || {}).html || "", (block.input || {}).css || "");
+            } else {
+              const result = toolResults[block.id];
+              appendToolCallDisplay(
+                bubble, block.name, block.input || {},
+                result ? result.content : "(no result)",
+                result ? result.isError : false,
+              );
+            }
           }
         }
       }
@@ -308,12 +331,16 @@ function renderConversation(messages) {
         for (const tc of msg.tool_calls) {
           let args = {};
           try { args = JSON.parse(tc.function.arguments || "{}"); } catch (e) { /* ignore */ }
-          const result = toolResults[tc.id];
-          appendToolCallDisplay(
-            bubble, tc.function.name, args,
-            result ? result.content : "(no result)",
-            result ? result.isError : false,
-          );
+          if (tc.function.name === "render_custom_widget") {
+            renderCustomWidget(bubble, args.html || "", args.css || "");
+          } else {
+            const result = toolResults[tc.id];
+            appendToolCallDisplay(
+              bubble, tc.function.name, args,
+              result ? result.content : "(no result)",
+              result ? result.isError : false,
+            );
+          }
         }
       }
     }
@@ -561,14 +588,19 @@ async function getLLMResponse() {
 
                 // Handle local tools (not routed through content script)
                 let localResult = null;
-                if (toolName === "get_quick_prompts") {
+                if (toolName === "render_custom_widget") {
+                  renderCustomWidget(currentAssistantBubble, args.html, args.css || "");
+                  localResult = "Widget rendered successfully";
+                } else if (toolName === "get_quick_prompts") {
                   localResult = await handleGetQuickPrompts();
                 } else if (toolName === "set_quick_prompts") {
                   localResult = await handleSetQuickPrompts(args.prompts);
                 }
 
                 if (localResult !== null) {
-                  appendToolCallDisplay(currentAssistantBubble, toolName, args, localResult, false);
+                  if (toolName !== "render_custom_widget") {
+                    appendToolCallDisplay(currentAssistantBubble, toolName, args, localResult, false);
+                  }
                   if (service === "anthropic") {
                     anthropicResults.push({
                       type: "tool_result",
