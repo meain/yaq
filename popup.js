@@ -296,8 +296,20 @@ function renderForm(bubble, fields, title) {
           <label class="form-label">${escapeHtml(label)}</label>
           <textarea name="${escapeHtml(name)}" placeholder="${escapeHtml(placeholder)}" ${required}>${escapeHtml(String(defaultVal))}</textarea>
         </div>`;
+      } else if (type === "range") {
+        let attrs = `type="range" name="${escapeHtml(name)}" value="${escapeHtml(String(defaultVal))}"`;
+        if (field.min != null) attrs += ` min="${field.min}"`;
+        if (field.max != null) attrs += ` max="${field.max}"`;
+        if (field.step != null) attrs += ` step="${field.step}"`;
+        html += `<div class="form-field">
+          <div class="form-range-header">
+            <label class="form-label">${escapeHtml(label)}</label>
+            <span class="form-range-value" data-for="${escapeHtml(name)}">${escapeHtml(String(defaultVal))}</span>
+          </div>
+          <input ${attrs}>
+        </div>`;
       } else {
-        // text, number, email, url, date, color, range
+        // text, number, email, url, date, color
         let attrs = `type="${escapeHtml(type)}" name="${escapeHtml(name)}" value="${escapeHtml(String(defaultVal))}" placeholder="${escapeHtml(placeholder)}" ${required}`;
         if (field.min != null) attrs += ` min="${field.min}"`;
         if (field.max != null) attrs += ` max="${field.max}"`;
@@ -317,6 +329,15 @@ function renderForm(bubble, fields, title) {
 
     card.innerHTML = html;
     bubble.appendChild(card);
+
+    // Wire up range inputs to update their value display
+    card.querySelectorAll('input[type="range"]').forEach((input) => {
+      input.addEventListener("input", () => {
+        const display = card.querySelector(`.form-range-value[data-for="${input.name}"]`);
+        if (display) display.textContent = input.value;
+      });
+    });
+
     scrollChatToBottom();
 
     function collectValues() {
@@ -347,7 +368,8 @@ function renderForm(bubble, fields, title) {
     }
 
     card.querySelector(".btn-run").onclick = () => {
-      // Check required fields
+      // Check required fields — add validated class to show red borders
+      card.classList.add("validated");
       const invalids = card.querySelectorAll(":invalid");
       if (invalids.length > 0) {
         invalids[0].focus();
@@ -610,6 +632,7 @@ async function sendMessage(text) {
     await getLLMResponse();
   } catch (error) {
     const bubble = appendAssistantBubble();
+    bubble.classList.add("error");
     let errorMd = `**Error:** ${error.message}`;
     if (error.message.includes("Receiving end does not exist")) {
       errorMd += `\n\n<details><summary>Why does this happen?</summary>\n\nThis happens when:\n- The page is restricted (chrome://, file://, extension pages, Web Store)\n- The tab was opened before the extension was installed or reloaded\n- The page hasn't finished loading yet\n</details>`;
@@ -880,6 +903,7 @@ async function getLLMResponse() {
         } catch (error) {
           setProcessing(false);
           const b = currentAssistantBubble || appendAssistantBubble();
+          b.classList.add("error");
           updateAssistantBubble(b, `**Error:** ${error.message}`);
           currentAssistantBubble = null;
           reject(error);

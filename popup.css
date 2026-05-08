@@ -599,6 +599,13 @@ body {
     box-shadow: 0 0 0 2px rgba(26,26,46,0.1);
 }
 
+.form-card.validated input:invalid,
+.form-card.validated textarea:invalid,
+.form-card.validated select:invalid {
+    border-color: var(--red);
+    box-shadow: 0 0 0 2px rgba(220,53,69,0.12);
+}
+
 .form-card-body input:disabled,
 .form-card-body textarea:disabled,
 .form-card-body select:disabled {
@@ -618,6 +625,19 @@ body {
 .form-card-body input[type="range"] {
     width: 100%;
     accent-color: var(--accent);
+}
+
+.form-range-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+}
+
+.form-range-value {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text);
+    font-family: var(--mono);
 }
 
 .form-radio-group {
