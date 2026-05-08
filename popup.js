@@ -89,9 +89,14 @@ The plain text content of the current page is provided in the first message. For
 
 // === Chat rendering ===
 
-function scrollChatToBottom() {
-  const chat = document.getElementById("chat-messages");
-  chat.scrollTop = chat.scrollHeight;
+let userScrolledAway = false;
+
+function scrollChatToBottom(force) {
+  if (force || !userScrolledAway) {
+    const chat = document.getElementById("chat-messages");
+    chat.scrollTop = chat.scrollHeight;
+    userScrolledAway = false;
+  }
 }
 
 function clearWelcome() {
@@ -126,7 +131,7 @@ function appendUserBubble(text) {
   wrapper.appendChild(bubble);
   wrapper.appendChild(createCopyButton(() => text));
   chat.appendChild(wrapper);
-  scrollChatToBottom();
+  scrollChatToBottom(true);
 }
 
 function appendAssistantBubble() {
@@ -139,7 +144,7 @@ function appendAssistantBubble() {
   wrapper.appendChild(bubble);
   wrapper.appendChild(createCopyButton(() => bubble._rawMarkdown || bubble.textContent));
   chat.appendChild(wrapper);
-  scrollChatToBottom();
+  scrollChatToBottom(true);
   return bubble;
 }
 
@@ -294,6 +299,7 @@ async function sendMessage(text) {
   const textArea = document.getElementById("text");
   textArea.value = "";
   textArea.style.height = "auto";
+  userScrolledAway = false;
   setProcessing(true);
 
   appendUserBubble(text);
@@ -816,6 +822,13 @@ function setupTextarea() {
 
 document.addEventListener("DOMContentLoaded", function () {
   showWelcome();
+
+  // Track if user has scrolled away from bottom
+  const chatEl = document.getElementById("chat-messages");
+  chatEl.addEventListener("scroll", () => {
+    const nearBottom = chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight < 60;
+    userScrolledAway = !nearBottom;
+  });
 
   // Get current tab info
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
