@@ -51,6 +51,8 @@ Tools are always available to the AI. It will use them when needed to answer you
 - **read_html** — full outerHTML of any element
 - **exec_javascript** — run JS in page context (requires confirmation)
 - **add_css / remove_css** — inject and remove tracked stylesheets
+- **render_custom_widget** — render rich HTML/CSS inline in chat (shadow DOM isolated)
+- **render_form** — render interactive forms in chat (text, textarea, select, checkbox, radio, number, range, date, color, email, url) and return submitted values to the AI
 - **get_youtube_subtitles** — available on YouTube video pages
 - **get_quick_prompts / set_quick_prompts** — read and update your pill configuration
 
