@@ -206,6 +206,74 @@ async function streamResponse(response) {
   };
 }
 
+async function streamAnthropicResponse(response) {
+  if (prevReader) {
+    prevReader.cancel();
+  }
+
+  const reader = response.body.getReader();
+  prevReader = reader;
+  document.getElementById("progress-container").style.display = "flex";
+
+  const decoder = new TextDecoder("utf-8");
+  let done = false;
+  let buffer = "";
+  let output = "";
+  let toolCalls = [];
+  let currentToolIndex = -1;
+
+  while (!done) {
+    const { value, done: doneReading } = await reader.read();
+    done = doneReading;
+    buffer += decoder.decode(value, { stream: !done });
+
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (line.startsWith("data: ")) {
+        try {
+          const data = JSON.parse(line.substring(6));
+
+          if (data.type === "content_block_start") {
+            if (data.content_block.type === "tool_use") {
+              currentToolIndex++;
+              toolCalls[currentToolIndex] = {
+                id: data.content_block.id,
+                type: "function",
+                function: {
+                  name: data.content_block.name,
+                  arguments: "",
+                },
+              };
+            }
+          } else if (data.type === "content_block_delta") {
+            if (data.delta.type === "text_delta") {
+              output += data.delta.text;
+              if (output.trim()) {
+                renderPartialHTML(output);
+              }
+            } else if (data.delta.type === "input_json_delta") {
+              if (currentToolIndex >= 0) {
+                toolCalls[currentToolIndex].function.arguments +=
+                  data.delta.partial_json;
+              }
+            }
+          }
+        } catch (e) {
+          // Incomplete JSON line, ignore
+        }
+      }
+    }
+  }
+
+  return {
+    response: output,
+    toolCalls: toolCalls.length > 0 ? toolCalls : null,
+    content: output,
+  };
+}
+
 async function executeToolCall(toolName, args) {
   return new Promise((resolve, reject) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -336,24 +404,139 @@ async function fetchFromOpenAI(openAIBaseUrl, model, apiKey, messages) {
   return await streamResponse(response);
 }
 
+async function fetchFromAnthropic(
+  baseUrl,
+  model,
+  apiKey,
+  messages,
+  systemPrompt,
+) {
+  if (apiKey === "" || model === "") {
+    document.getElementById("output").innerText =
+      "Please set your Anthropic API key and model in the options page";
+    return;
+  }
+
+  const requestBody = {
+    model: model,
+    max_tokens: 8192,
+    stream: true,
+    messages: messages,
+  };
+
+  if (systemPrompt) {
+    requestBody.system = systemPrompt;
+  }
+
+  // Add tools if enabled
+  if (toolsEnabled()) {
+    requestBody.tools = [
+      {
+        name: "click_element",
+        description: "Click on a page element using CSS selector",
+        input_schema: {
+          type: "object",
+          properties: {
+            selector: {
+              type: "string",
+              description: "CSS selector for the element to click",
+            },
+          },
+          required: ["selector"],
+        },
+      },
+      {
+        name: "scroll_to_element",
+        description: "Scroll to a page element using CSS selector",
+        input_schema: {
+          type: "object",
+          properties: {
+            selector: {
+              type: "string",
+              description: "CSS selector for the element to scroll to",
+            },
+          },
+          required: ["selector"],
+        },
+      },
+      {
+        name: "input_text",
+        description:
+          "Enter text into an input field, textarea, or other text element using CSS selector",
+        input_schema: {
+          type: "object",
+          properties: {
+            selector: {
+              type: "string",
+              description: "CSS selector for the input element",
+            },
+            text: {
+              type: "string",
+              description: "Text to enter into the field",
+            },
+            clear: {
+              type: "boolean",
+              description:
+                "Whether to clear the field before entering text (default: true)",
+            },
+          },
+          required: ["selector", "text"],
+        },
+      },
+      {
+        name: "navigate_to",
+        description:
+          "Navigate to a different URL and wait for the page to load completely",
+        input_schema: {
+          type: "object",
+          properties: {
+            url: {
+              type: "string",
+              description:
+                "The URL to navigate to (can be relative or absolute)",
+            },
+          },
+          required: ["url"],
+        },
+      },
+    ];
+    requestBody.tool_choice = { type: "auto" };
+  }
+
+  const response = await fetch(baseUrl + "/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  return await streamAnthropicResponse(response);
+}
+
 async function getLLMResponse(messages) {
   index = -1; // Reset index
 
   return new Promise((resolve, reject) => {
     chrome.storage.local.get(
       {
+        service: "openai",
         apiKey: "",
         model: "",
         openAIBaseUrl: "",
       },
       async function (items) {
+        const service = items.service;
         const apiKey = items.apiKey;
         const model = items.model;
         const openAIBaseUrl = items.openAIBaseUrl;
 
         if (apiKey === "" || model === "") {
           document.getElementById("output").innerText =
-            "Please set your OpenAI API key and model in the options page";
+            "Please set your API key and model in the options page";
           return;
         }
 
@@ -364,44 +547,90 @@ async function getLLMResponse(messages) {
           `Processing using ${model}...`;
 
         let currentMessages = [...messages];
+        let systemPrompt = "";
         let finalResponse = "";
         let toolCallsHtml = "";
 
+        // Extract system message for Anthropic
+        if (service === "anthropic") {
+          currentMessages = currentMessages.filter((msg) => {
+            if (msg.role === "system") {
+              systemPrompt = msg.content;
+              return false;
+            }
+            return true;
+          });
+        }
+
         // Continue conversation until we get a non-tool response
         while (true) {
-          const response = await fetchFromOpenAI(
-            openAIBaseUrl,
-            model,
-            apiKey,
-            currentMessages,
-          );
+          let response;
+          if (service === "anthropic") {
+            response = await fetchFromAnthropic(
+              openAIBaseUrl,
+              model,
+              apiKey,
+              currentMessages,
+              systemPrompt,
+            );
+          } else {
+            response = await fetchFromOpenAI(
+              openAIBaseUrl,
+              model,
+              apiKey,
+              currentMessages,
+            );
+          }
 
           if (response.toolCalls && response.toolCalls.length > 0) {
             // Add assistant message with tool calls
-            currentMessages.push({
-              role: "assistant",
-              content: response.content || "",
-              tool_calls: response.toolCalls,
-            });
+            if (service === "anthropic") {
+              const contentBlocks = [];
+              if (response.content) {
+                contentBlocks.push({ type: "text", text: response.content });
+              }
+              for (const toolCall of response.toolCalls) {
+                contentBlocks.push({
+                  type: "tool_use",
+                  id: toolCall.id,
+                  name: toolCall.function.name,
+                  input: JSON.parse(toolCall.function.arguments),
+                });
+              }
+              currentMessages.push({
+                role: "assistant",
+                content: contentBlocks,
+              });
+            } else {
+              currentMessages.push({
+                role: "assistant",
+                content: response.content || "",
+                tool_calls: response.toolCalls,
+              });
+            }
 
             // Execute tools and add results
+            const anthropicToolResults = [];
             for (const toolCall of response.toolCalls) {
               try {
                 const result = await executeToolCall(
                   toolCall.function.name,
                   JSON.parse(toolCall.function.arguments),
                 );
-                currentMessages.push({
-                  role: "tool",
-                  tool_call_id: toolCall.id,
-                  content: result,
-                });
 
-                // Add to tool calls HTML with simpler formatting
-                const args = JSON.parse(toolCall.function.arguments);
-                const argsDisplay = Object.entries(args)
-                  .map(([key, value]) => `"${value}"`)
-                  .join(", ");
+                if (service === "anthropic") {
+                  anthropicToolResults.push({
+                    type: "tool_result",
+                    tool_use_id: toolCall.id,
+                    content: result,
+                  });
+                } else {
+                  currentMessages.push({
+                    role: "tool",
+                    tool_call_id: toolCall.id,
+                    content: result,
+                  });
+                }
 
                 toolCallsHtml += `
                   <div class="tool-call">
@@ -409,11 +638,20 @@ async function getLLMResponse(messages) {
                   </div>
                 `;
               } catch (error) {
-                currentMessages.push({
-                  role: "tool",
-                  tool_call_id: toolCall.id,
-                  content: `Error: ${error.message}`,
-                });
+                if (service === "anthropic") {
+                  anthropicToolResults.push({
+                    type: "tool_result",
+                    tool_use_id: toolCall.id,
+                    content: `Error: ${error.message}`,
+                    is_error: true,
+                  });
+                } else {
+                  currentMessages.push({
+                    role: "tool",
+                    tool_call_id: toolCall.id,
+                    content: `Error: ${error.message}`,
+                  });
+                }
 
                 const args = JSON.parse(toolCall.function.arguments);
                 const argsDisplay = Object.entries(args)
@@ -426,6 +664,14 @@ async function getLLMResponse(messages) {
                   </div>
                 `;
               }
+            }
+
+            // For Anthropic, tool results go in a single user message
+            if (service === "anthropic") {
+              currentMessages.push({
+                role: "user",
+                content: anthropicToolResults,
+              });
             }
 
             // Update UI with current progress (show tool calls but don't include in AI response)
@@ -441,7 +687,7 @@ async function getLLMResponse(messages) {
             // Render final response with any tool calls that were executed
             renderWithToolCalls(finalResponse, toolCallsHtml);
 
-            resolve({ provider: "openai", model, response: finalResponse });
+            resolve({ provider: service, model, response: finalResponse });
             break;
           }
         }

@@ -22,25 +22,40 @@ const defaultButtons = [
   },
 ];
 
+const serviceDefaults = {
+  openai: { url: "https://api.openai.com/v1", placeholder: "sk-..." },
+  anthropic: {
+    url: "https://api.anthropic.com/v1",
+    placeholder: "sk-ant-...",
+  },
+};
+
 const serviceModels = {
   openai: function () {
-    return new Promise((resolve, reject) => {
-      chrome.storage.local.get(
-        {
-          openAIBaseUrl: "https://api.openai.com/v1",
-          apiKey: "",
-        },
-        async function (items) {
-          const req = await fetch(`${items.openAIBaseUrl}/models`, {
-            headers: {
-              Authorization: `Bearer ${items.apiKey}`,
-            },
-          });
-          const data = await req.json();
-          resolve(data.data.map((model) => model.id));
-        },
-      );
-    });
+    const baseUrl =
+      document.getElementById("url").value || serviceDefaults.openai.url;
+    const apiKey = document.getElementById("key").value;
+    return fetch(`${baseUrl}/models`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    })
+      .then((r) => r.json())
+      .then((data) => (data.data || []).map((model) => model.id))
+      .catch(() => []);
+  },
+  anthropic: function () {
+    const baseUrl =
+      document.getElementById("url").value || serviceDefaults.anthropic.url;
+    const apiKey = document.getElementById("key").value;
+    return fetch(`${baseUrl}/models`, {
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+    })
+      .then((r) => r.json())
+      .then((data) => (data.data || []).map((model) => model.id))
+      .catch(() => []);
   },
 };
 
@@ -198,13 +213,24 @@ function restore_options() {
     async function (items) {
       document.getElementById("service").value = items.service;
       document.getElementById("model").value = items.model;
-      document.getElementById("model").value = items.model;
       document.getElementById("key").value = items.apiKey;
       document.getElementById("url").value = items.openAIBaseUrl;
+      updateServiceUI(items.service);
       populateButtonsUI(items.buttons);
       await populateModels(items.service);
     },
   );
+}
+
+function updateServiceUI(service) {
+  const urlField = document.getElementById("url");
+  const keyField = document.getElementById("key");
+  const otherService = service === "openai" ? "anthropic" : "openai";
+
+  if (!urlField.value || urlField.value === serviceDefaults[otherService].url) {
+    urlField.value = serviceDefaults[service].url;
+  }
+  keyField.placeholder = serviceDefaults[service].placeholder;
 }
 
 document.addEventListener("DOMContentLoaded", restore_options);
@@ -212,3 +238,7 @@ document.getElementById("save").addEventListener("click", save_options);
 document
   .getElementById("add-button")
   .addEventListener("click", () => addButton());
+document.getElementById("service").addEventListener("change", function () {
+  updateServiceUI(this.value);
+  populateModels(this.value);
+});
