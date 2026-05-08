@@ -1,85 +1,15 @@
+// Content script: page content extraction and tool execution
+
 let subtitleCache = {};
+let cssCounter = 0;
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "getContent") {
     const url = window.location.href;
     const selection = window.getSelection().toString();
-    const html = document.documentElement.outerHTML;
-    let text = document.body.innerText;
-    let subtitles = "";
+    const text = document.body.innerText;
     const title = document.title;
-
-    const videoID = new URL(url).searchParams.get("v");
-
-    if (videoID) {
-      if (subtitleCache[videoID]) {
-        subtitles = subtitleCache[videoID];
-        sendResponse({ text, html, selection, subtitles, url, title });
-      } else {
-        getLanguagesList(videoID)
-          .then((languages) => {
-            if (languages.length > 0) {
-              let subtitle =
-                languages.find(
-                  (lang) =>
-                    lang.language === "English" ||
-                    lang.language === "English (auto-generated)",
-                ) || languages[0];
-
-              getSubtitles(subtitle)
-                .then((fetchedSubtitles) => {
-                  subtitleCache[videoID] = fetchedSubtitles;
-                  subtitles = fetchedSubtitles;
-                  sendResponse({
-                    text,
-                    html,
-                    selection,
-                    subtitles,
-                    url,
-                    title,
-                  });
-                })
-                .catch((error) => {
-                  sendResponse({
-                    text,
-                    html,
-                    selection,
-                    subtitles,
-                    url,
-                    title,
-                    error: "Could not fetch subtitles",
-                  });
-                });
-            } else {
-              sendResponse({
-                text,
-                html,
-                selection,
-                subtitles,
-                url,
-                title,
-                error: "No subtitles found",
-              });
-            }
-          })
-          .catch((error) => {
-            sendResponse({
-              text,
-              html,
-              selection,
-              subtitles,
-              url,
-              title,
-              error: "Could not fetch subtitles",
-            });
-          });
-
-        return true; // Indicates that the response is sent asynchronously
-      }
-    } else {
-      sendResponse({ text, html, selection, subtitles, url, title });
-    }
-
+    sendResponse({ text, selection, url, title });
     return true;
   }
 
@@ -91,17 +21,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         let result;
 
         switch (toolName) {
-          case "click_element":
-            result = clickElement(args.selector);
+          case "get_page_outline":
+            result = getPageOutline(args.selector, args.depth);
             break;
-          case "scroll_to_element":
-            result = scrollToElement(args.selector);
+          case "read_html":
+            result = readHtml(args.selector);
             break;
-          case "input_text":
-            result = inputText(args.selector, args.text, args.clear);
+          case "exec_javascript":
+            result = await execJavascript(args.code);
             break;
-          case "navigate_to":
-            result = await navigateTo(args.url);
+          case "add_css":
+            result = addCss(args.css);
+            break;
+          case "remove_css":
+            result = removeCss(args.id);
+            break;
+          case "get_youtube_subtitles":
+            result = await getYoutubeSubtitles();
             break;
           default:
             throw new Error(`Unknown tool: ${toolName}`);
@@ -117,7 +53,159 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-// === YouTube specific functions ===
+// === Tool implementations ===
+
+function getPageOutline(selector, depth) {
+  selector = selector || "body";
+  depth = depth || 5;
+
+  const root = document.querySelector(selector);
+  if (!root) {
+    throw new Error(`Element not found: ${selector}`);
+  }
+
+  const lines = [];
+  const MAX_SIZE = 50000;
+  let size = 0;
+  let truncated = false;
+
+  function walk(el, currentDepth, indent) {
+    if (truncated || currentDepth > depth) return;
+
+    let line = indent + el.tagName.toLowerCase();
+    if (el.id) line += `#${el.id}`;
+    if (el.className && typeof el.className === "string") {
+      const classes = el.className.trim();
+      if (classes) line += "." + classes.split(/\s+/).join(".");
+    }
+
+    const childCount = el.children.length;
+    if (childCount > 0 && currentDepth === depth) {
+      line += ` (${childCount} children)`;
+    }
+
+    lines.push(line);
+    size += line.length + 1;
+
+    if (size > MAX_SIZE) {
+      truncated = true;
+      return;
+    }
+
+    for (const child of el.children) {
+      walk(child, currentDepth + 1, indent + "  ");
+    }
+  }
+
+  walk(root, 0, "");
+
+  let result = lines.join("\n");
+  if (truncated) {
+    result += "\n... (truncated)";
+  }
+  return result;
+}
+
+function readHtml(selector) {
+  const el = document.querySelector(selector);
+  if (!el) {
+    throw new Error(`Element not found: ${selector}`);
+  }
+
+  const html = el.outerHTML;
+  const MAX_SIZE = 100000;
+  if (html.length > MAX_SIZE) {
+    return html.substring(0, MAX_SIZE) + "\n... (truncated)";
+  }
+  return html;
+}
+
+function execJavascript(code) {
+  return new Promise((resolve) => {
+    const id = "yaq-exec-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+
+    function handler(event) {
+      if (event.data && event.data.type === id) {
+        window.removeEventListener("message", handler);
+        resolve(event.data.result);
+      }
+    }
+    window.addEventListener("message", handler);
+
+    const script = document.createElement("script");
+    script.textContent = `
+      (function() {
+        try {
+          const __yaq_result = (function() { ${code} })();
+          const __yaq_str = typeof __yaq_result === 'undefined' ? 'undefined'
+            : typeof __yaq_result === 'object' ? JSON.stringify(__yaq_result, null, 2)
+            : String(__yaq_result);
+          window.postMessage({ type: "${id}", result: __yaq_str }, "*");
+        } catch(e) {
+          window.postMessage({ type: "${id}", result: "Error: " + e.message }, "*");
+        }
+      })();
+    `;
+    document.documentElement.appendChild(script);
+    script.remove();
+
+    // Timeout after 10s
+    setTimeout(() => {
+      window.removeEventListener("message", handler);
+      resolve("Error: Execution timed out after 10 seconds");
+    }, 10000);
+  });
+}
+
+function addCss(css) {
+  cssCounter++;
+  const id = `yaq-css-${cssCounter}`;
+
+  const style = document.createElement("style");
+  style.id = id;
+  style.textContent = css;
+  document.head.appendChild(style);
+
+  return JSON.stringify({ id });
+}
+
+function removeCss(id) {
+  const style = document.getElementById(id);
+  if (!style) {
+    throw new Error(`CSS stylesheet not found: ${id}`);
+  }
+  style.remove();
+  return `Removed stylesheet: ${id}`;
+}
+
+// === YouTube subtitle functions ===
+
+async function getYoutubeSubtitles() {
+  const videoID = new URL(window.location.href).searchParams.get("v");
+  if (!videoID) {
+    throw new Error("Not a YouTube video page");
+  }
+
+  if (subtitleCache[videoID]) {
+    return subtitleCache[videoID];
+  }
+
+  const languages = await getLanguagesList(videoID);
+  if (languages.length === 0) {
+    throw new Error("No subtitles available for this video");
+  }
+
+  const subtitle =
+    languages.find(
+      (lang) =>
+        lang.language === "English" ||
+        lang.language === "English (auto-generated)",
+    ) || languages[0];
+
+  const text = await getSubtitles(subtitle);
+  subtitleCache[videoID] = text;
+  return text;
+}
 
 function _extractCaptions(html) {
   const splittedHtml = html.split('"captions":');
@@ -134,19 +222,16 @@ async function getLanguagesList(videoID) {
   const data = await fetch(videoURL).then((res) => res.text());
   const decodedData = data.replace("\\u0026", "&").replace("\\", "");
 
-  const captionJSON = this._extractCaptions(decodedData);
+  const captionJSON = _extractCaptions(decodedData);
 
-  // ensure we have access to captions data
-  if (!captionJSON || (!"captionTracks") in captionJSON) {
+  if (!captionJSON || !("captionTracks" in captionJSON)) {
     throw new Error(`Could not find captions for video: ${videoID}`);
   }
 
-  return captionJSON.captionTracks.map((track) => {
-    return {
-      ...track,
-      language: track.name.simpleText,
-    };
-  });
+  return captionJSON.captionTracks.map((track) => ({
+    ...track,
+    language: track.name.simpleText,
+  }));
 }
 
 async function getSubtitles(subtitle) {
@@ -160,159 +245,11 @@ async function getSubtitles(subtitle) {
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(transcript, "text/xml");
 
+  const textElements = xmlDoc.getElementsByTagName("text");
   let transcriptText = "";
-  for (let i = 0; i < xmlDoc.getElementsByTagName("text").length; i++) {
-    transcriptText += xmlDoc.getElementsByTagName("text")[i].innerHTML + " ";
+  for (let i = 0; i < textElements.length; i++) {
+    transcriptText += textElements[i].innerHTML + " ";
   }
 
-  return transcriptText;
-}
-
-// === Tool functions ===
-
-function clickElement(selector) {
-  try {
-    const element = document.querySelector(selector);
-    if (!element) {
-      throw new Error(`Element not found: ${selector}`);
-    }
-
-    // Scroll element into view first
-    element.scrollIntoView({ behavior: "smooth", block: "center" });
-
-    // Wait a bit for scroll to complete, then click
-    setTimeout(() => {
-      element.click();
-    }, 500);
-
-    return `Clicked element: ${selector}`;
-  } catch (error) {
-    throw new Error(`Failed to click element ${selector}: ${error.message}`);
-  }
-}
-
-function scrollToElement(selector) {
-  try {
-    const element = document.querySelector(selector);
-    if (!element) {
-      throw new Error(`Element not found: ${selector}`);
-    }
-
-    element.scrollIntoView({ behavior: "smooth", block: "center" });
-    return `Scrolled to element: ${selector}`;
-  } catch (error) {
-    throw new Error(
-      `Failed to scroll to element ${selector}: ${error.message}`,
-    );
-  }
-}
-
-function inputText(selector, text, clear = true) {
-  try {
-    const element = document.querySelector(selector);
-    if (!element) {
-      throw new Error(`Element not found: ${selector}`);
-    }
-
-    // Check if element can accept text input
-    const inputTypes = ["input", "textarea"];
-    const editableTypes = [
-      "text",
-      "email",
-      "password",
-      "search",
-      "tel",
-      "url",
-      "number",
-    ];
-
-    const tagName = element.tagName.toLowerCase();
-    const inputType = element.type ? element.type.toLowerCase() : "";
-    const isContentEditable = element.contentEditable === "true";
-
-    if (!inputTypes.includes(tagName) && !isContentEditable) {
-      throw new Error(`Element ${selector} is not a text input field`);
-    }
-
-    if (
-      tagName === "input" &&
-      !editableTypes.includes(inputType) &&
-      inputType !== ""
-    ) {
-      throw new Error(
-        `Input element ${selector} type "${inputType}" does not accept text`,
-      );
-    }
-
-    // Scroll element into view and focus
-    element.scrollIntoView({ behavior: "smooth", block: "center" });
-    element.focus();
-
-    // Clear existing content if requested
-    if (clear) {
-      if (isContentEditable) {
-        element.innerText = "";
-      } else {
-        element.value = "";
-      }
-    }
-
-    // Set the text
-    if (isContentEditable) {
-      element.innerText = clear ? text : element.innerText + text;
-    } else {
-      element.value = clear ? text : element.value + text;
-    }
-
-    // Trigger input events to notify any listeners
-    element.dispatchEvent(new Event("input", { bubbles: true }));
-    element.dispatchEvent(new Event("change", { bubbles: true }));
-
-    const action = clear ? "Entered" : "Appended";
-    return `${action} text "${text}" into element: ${selector}`;
-  } catch (error) {
-    throw new Error(
-      `Failed to input text into element ${selector}: ${error.message}`,
-    );
-  }
-}
-
-async function navigateTo(url) {
-  try {
-    // Convert relative URLs to absolute
-    const absoluteUrl = new URL(url, window.location.href).href;
-
-    // Create a promise that resolves when navigation is complete
-    const navigationPromise = new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error("Navigation timeout after 10 seconds"));
-      }, 10000);
-
-      // Listen for page load events
-      const onLoad = () => {
-        clearTimeout(timeout);
-        window.removeEventListener("load", onLoad);
-        resolve();
-      };
-
-      // If the page is already loaded (for same-page navigations), resolve immediately
-      if (document.readyState === "complete") {
-        clearTimeout(timeout);
-        resolve();
-        return;
-      }
-
-      window.addEventListener("load", onLoad);
-    });
-
-    // Navigate to the URL
-    window.location.href = absoluteUrl;
-
-    // Wait for navigation to complete
-    await navigationPromise;
-
-    return `Successfully navigated to: ${absoluteUrl}`;
-  } catch (error) {
-    throw new Error(`Failed to navigate to ${url}: ${error.message}`);
-  }
+  return transcriptText.trim();
 }

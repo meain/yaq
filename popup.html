@@ -7,111 +7,89 @@
   </head>
   <body>
     <div id="container">
-      <div class="header">
-        <div class="input-group primary">
-          <input type="text" id="text" placeholder="Want answers?" />
-          <button id="answer">Answer</button>
-          <button id="summarize">Summary</button>
+      <div class="input-area">
+        <div class="input-row">
+          <button id="new-chat" class="new-chat-btn" title="New conversation">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </button>
+          <textarea id="text" placeholder="Ask anything..." rows="1"></textarea>
+          <button id="send" class="send-btn" title="Send (Enter)">
+            <svg class="icon-send" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+            <svg class="icon-stop" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+              <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"></rect>
+            </svg>
+          </button>
         </div>
-        <div class="checkbox-group">
-          <div class="checkbox-container">
-            <input type="checkbox" id="continue" />
-            <label
-              for="continue"
-              data-hover-info="Continue last conversation from the same URL"
-              >Continue conversation</label
-            >
-          </div>
-          <div class="checkbox-container">
-            <input type="checkbox" id="use_html" />
-            <label
-              for="use_html"
-              data-hover-info="Use HTML content for better structure (slower)"
-              >Use HTML</label
-            >
-          </div>
-          <div class="checkbox-container">
-            <input type="checkbox" id="enable_tools" />
-            <label
-              for="enable_tools"
-              data-hover-info="Allow AI to interact with page elements (click, scroll)"
-              >Enable tools</label
-            >
-          </div>
-        </div>
-        <div id="buttons" class="flexi"></div>
+        <div id="pills" class="pills-row"></div>
       </div>
     </div>
 
-    <!-- Progress indicator -->
-    <div
-      id="progress-container"
-      class="progress-container"
-      style="display: none"
-    >
-      <div class="spinner"></div>
-      <div class="processing-text">Processing...</div>
-      <button id="cancel-request">Cancel</button>
-    </div>
+    <div id="chat-messages" class="chat-messages"></div>
 
-    <details class="settings-panel">
-      <summary>Settings</summary>
-      <div class="settings-content">
-        <div class="model-picker" id="model-picker">
-          <label class="settings-label">Model</label>
-          <input type="text" id="model" placeholder="Loading models..." autocomplete="off" />
-          <div id="model-dropdown" class="model-dropdown"></div>
-        </div>
-      </div>
-    </details>
+    <div class="bottom-bar">
+      <button id="history-btn" class="bottom-icon-btn" title="History">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        <span id="history-count" class="badge"></span>
+      </button>
+      <button id="model-btn" class="bottom-icon-btn" title="Model">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+          <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </svg>
+        <span id="model-label" class="bottom-label"></span>
+      </button>
+      <button id="settings-btn" class="bottom-icon-btn" title="Settings">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="4" y1="21" x2="4" y2="14"></line>
+          <line x1="4" y1="10" x2="4" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12" y2="3"></line>
+          <line x1="20" y1="21" x2="20" y2="16"></line>
+          <line x1="20" y1="12" x2="20" y2="3"></line>
+          <line x1="1" y1="14" x2="7" y2="14"></line>
+          <line x1="9" y1="8" x2="15" y2="8"></line>
+          <line x1="17" y1="16" x2="23" y2="16"></line>
+        </svg>
+      </button>
 
-    <details class="history-panel" id="history-panel">
-      <summary>History <span id="history-count"></span></summary>
-      <div class="history-content">
+      <div id="history-popup" class="popup" style="display:none">
         <div id="history-list" class="history-list"></div>
       </div>
-    </details>
 
-    <div id="output">
-      <div>
-        <h2>Yaq</h2>
-        <p>Summarize or answer questions about any webpage.</p>
+      <div id="model-popup" class="popup" style="display:none">
+        <div class="popup-inner">
+          <div class="model-picker" id="model-picker">
+            <input type="text" id="model" placeholder="Search models..." autocomplete="off" />
+            <div id="model-dropdown" class="model-dropdown"></div>
+          </div>
+        </div>
       </div>
 
-      <div>
-        <h4>Use cases:</h4>
-        <ul>
-          <li>Summarize blogs or news articles</li>
-          <li>Answer questions about product pages or YouTube videos</li>
-          <li>Inquire about GitHub issues or Linear tickets</li>
-          <li>Ask about currently open files in GitHub</li>
-          <li>Get assistance in reviewing GitHub PRs</li>
-        </ul>
-
-        <h4>Shortcuts:</h4>
-        <ul>
-          <li><kbd>Enter</kbd> to answer</li>
-          <li><kbd>Shift</kbd> + <kbd>Enter</kbd> to summarize</li>
-          <li>
-            <kbd>Ctrl/Cmd</kbd> + <kbd>Shift</kbd> + <kbd>M</kbd> to open popup
-          </li>
-        </ul>
-
-        <h4>Tips:</h4>
-        <ul>
-          <li>Customize buttons in plugin settings</li>
-          <li>Use <kbd>Ctrl</kbd> + number to trigger buttons</li>
-          <li>Experiment with different prompts</li>
-          <li>Use 'Continue conversation' for follow-ups</li>
-          <li>Select specific text for focused answers</li>
-          <li>YouTube responses use video subtitles</li>
-          <li>Browse history with 'History browser'</li>
-          <li>Enable tools to let AI interact with page elements</li>
-        </ul>
+      <div id="settings-popup" class="popup" style="display:none">
+        <div class="popup-inner">
+          <label class="toggle-row">
+            <input type="checkbox" id="yolo-mode" />
+            <span>Yolo mode</span>
+            <span class="toggle-hint">Auto-approve JS</span>
+          </label>
+        </div>
       </div>
     </div>
-    <button id="copy">Copy response</button>
-    <script src="popup.js"></script>
+
     <script src="showdown.min.js"></script>
+    <script src="tools.js"></script>
+    <script src="api.js"></script>
+    <script src="history.js"></script>
+    <script src="popup.js"></script>
   </body>
 </html>

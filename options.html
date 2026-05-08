@@ -73,6 +73,21 @@
         color: var(--text-muted);
       }
 
+      .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 14px 0 6px 0;
+        padding-top: 10px;
+        border-top: 1px solid var(--border);
+      }
+
+      .section-header h3 {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 600;
+      }
+
       .button-config {
         border: 1px solid var(--border);
         border-radius: var(--radius);
@@ -150,19 +165,35 @@
         background: var(--surface);
       }
 
-      .buttons-header {
+      .toggle-option {
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        margin: 14px 0 6px 0;
-        padding-top: 10px;
-        border-top: 1px solid var(--border);
+        gap: 8px;
+        margin: 10px 0;
+        padding: 8px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
       }
 
-      .buttons-header h3 {
+      .toggle-option input[type="checkbox"] {
+        accent-color: var(--accent);
         margin: 0;
-        font-size: 13px;
+      }
+
+      .toggle-option-text {
+        flex: 1;
+      }
+
+      .toggle-option-text strong {
+        display: block;
+        font-size: 12px;
         font-weight: 600;
+      }
+
+      .toggle-option-text span {
+        font-size: 11px;
+        color: var(--text-muted);
       }
 
       #status {
@@ -192,7 +223,6 @@
       #save:hover {
         background-color: var(--accent-hover);
       }
-
     </style>
   </head>
   <body>
@@ -210,8 +240,8 @@
     <label for="url">Endpoint</label>
     <input type="text" id="url" placeholder="https://api.openai.com/v1" />
 
-    <div class="buttons-header">
-      <h3>Buttons</h3>
+    <div class="section-header">
+      <h3>Quick Prompts</h3>
       <button type="button" class="add-button" id="add-button">+ Add</button>
     </div>
     <div id="buttons-container"></div>

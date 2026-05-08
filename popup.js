@@ -1,32 +1,644 @@
+// Main popup UI, conversation flow, and event handling
+
 let prevReader = null;
-let responseCache = "";
-let aiResponseOnly = ""; // Store only AI response for copy functionality
-let index = -1;
+let currentTabId = null;
+let conversationMessages = [];
+let pageContent = null;
+let currentAssistantBubble = null;
+let isYouTube = false;
+let allModels = [];
+let yoloMode = false;
+let isProcessing = false;
 
-const MODEL_CACHE_TTL = 24 * 60 * 60 * 1000; // 1 day
+const converter = new showdown.Converter();
 
-function fetchModelsForService(service, baseUrl, apiKey) {
-  if (service === "anthropic") {
-    return fetch(`${baseUrl}/models`, {
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true",
-      },
-    })
-      .then((r) => r.json())
-      .then((data) => (data.data || []).map((m) => m.id))
-      .catch(() => []);
+function setProcessing(active) {
+  isProcessing = active;
+  const sendBtn = document.getElementById("send");
+  if (active) {
+    sendBtn.classList.add("loading");
+    sendBtn.disabled = false;
+    sendBtn.title = "Stop";
+  } else {
+    sendBtn.classList.remove("loading");
+    sendBtn.disabled = false;
+    sendBtn.title = "Send (Enter)";
   }
-  return fetch(`${baseUrl}/models`, {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  })
-    .then((r) => r.json())
-    .then((data) => (data.data || []).map((m) => m.id))
-    .catch(() => []);
 }
 
-let allModels = [];
+function stopProcessing() {
+  if (prevReader) {
+    prevReader.cancel();
+    prevReader = null;
+  }
+  setProcessing(false);
+  if (currentAssistantBubble) {
+    const p = document.createElement("p");
+    p.innerHTML = "<em>Stopped</em>";
+    currentAssistantBubble.appendChild(p);
+    currentAssistantBubble = null;
+  }
+}
+converter.setFlavor("github");
+
+const defaultButtons = [
+  { id: "summary", name: "Summary", prompt: "Provide a concise summary of this content, highlighting the main points and key takeaways." },
+  { id: "key-points", name: "Key Points", prompt: "Extract the 3-5 most important points from this content as a bulleted list." },
+  { id: "explain", name: "Explain", prompt: "Explain this content in simple terms, as if you're teaching it to someone who's new to the topic." },
+  { id: "tldr", name: "TL;DR", prompt: "Give me a TL;DR (too long; didn't read) version in 1-2 sentences." },
+  { id: "questions", name: "Questions", prompt: "Generate 3-5 thoughtful questions that this content answers or raises." },
+  { id: "action-items", name: "Action Items", prompt: "What are the actionable takeaways or next steps mentioned in this content?" },
+  { id: "context", name: "Context", prompt: "What background knowledge or context is helpful to better understand this content?" },
+  { id: "critique", name: "Critique", prompt: "What are the strengths and potential weaknesses or gaps in this content?" },
+];
+
+// === System prompt ===
+
+function buildSystemPrompt() {
+  let prompt = `You are Yaq, a web page assistant running in the user's browser. You are viewing the page the user currently has open.
+
+## Context
+The plain text content of the current page is provided in the first message. For HTML structure and interactive inspection, use the provided tools.
+
+## Tools
+- get_page_outline(selector?, depth?): Returns the DOM skeleton — tag names, IDs, classes, no text content. Use to understand page structure before drilling in.
+- read_html(selector): Returns the full outerHTML of a specific element. Use when you need exact markup.
+- exec_javascript(code): Run JavaScript on the page. The user will be asked to confirm unless auto-approve is on. Keep code minimal.
+- add_css(css): Inject CSS styles into the page. Returns an ID for later removal via remove_css.
+- remove_css(id): Remove previously injected CSS by its ID.
+- get_quick_prompts(): List the current quick prompt pills.
+- set_quick_prompts(prompts): Replace all quick prompt pills with a new list.`;
+
+  if (isYouTube) {
+    prompt += `\n- get_youtube_subtitles(): Fetch the video's subtitles/transcript.`;
+  }
+
+  prompt += `
+
+## Guidelines
+- Be concise and direct.
+- Answer from the provided page text first; use tools only when needed.
+- **Before running exec_javascript or interacting with the page, ALWAYS inspect the relevant HTML first** using get_page_outline and/or read_html. The page text alone does not tell you element structure, selectors, or attributes. Never guess at selectors — look them up.
+- For page modifications, explain what you'll do before acting.
+- When using exec_javascript, write minimal, safe code.`;
+
+  return prompt;
+}
+
+// === Chat rendering ===
+
+function scrollChatToBottom() {
+  const chat = document.getElementById("chat-messages");
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function clearWelcome() {
+  const welcome = document.querySelector(".welcome");
+  if (welcome) welcome.remove();
+}
+
+function createCopyButton(getText) {
+  const btn = document.createElement("button");
+  btn.className = "copy-btn";
+  btn.title = "Copy";
+  btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(getText());
+    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+    setTimeout(() => {
+      btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+    }, 1500);
+  };
+  return btn;
+}
+
+function appendUserBubble(text) {
+  clearWelcome();
+  const chat = document.getElementById("chat-messages");
+  const wrapper = document.createElement("div");
+  wrapper.className = "chat-bubble-wrapper user";
+  const bubble = document.createElement("div");
+  bubble.className = "chat-bubble user";
+  bubble.textContent = text;
+  wrapper.appendChild(bubble);
+  wrapper.appendChild(createCopyButton(() => text));
+  chat.appendChild(wrapper);
+  scrollChatToBottom();
+}
+
+function appendAssistantBubble() {
+  clearWelcome();
+  const chat = document.getElementById("chat-messages");
+  const wrapper = document.createElement("div");
+  wrapper.className = "chat-bubble-wrapper assistant";
+  const bubble = document.createElement("div");
+  bubble.className = "chat-bubble assistant";
+  wrapper.appendChild(bubble);
+  wrapper.appendChild(createCopyButton(() => bubble._rawMarkdown || bubble.textContent));
+  chat.appendChild(wrapper);
+  scrollChatToBottom();
+  return bubble;
+}
+
+function updateAssistantBubble(bubble, markdown) {
+  bubble._rawMarkdown = markdown;
+  bubble.innerHTML = converter.makeHtml(markdown);
+  scrollChatToBottom();
+}
+
+function appendToolCallDisplay(bubble, toolName, args, result, isError) {
+  const details = document.createElement("details");
+  details.className = "tool-call-inline" + (isError ? " error" : "");
+
+  const argsStr = Object.entries(args)
+    .map(([, v]) => {
+      const s = typeof v === "string" ? v : JSON.stringify(v);
+      return s.length > 40 ? s.substring(0, 40) + "..." : s;
+    })
+    .join(", ");
+
+  details.innerHTML = `
+    <summary><em class="tool-icon">${isError ? "\u274C" : "\u{1F527}"}</em> ${toolName}(${argsStr})</summary>
+    <div class="tool-result">${escapeHtml(typeof result === "string" ? result : JSON.stringify(result, null, 2))}</div>
+  `;
+
+  bubble.appendChild(details);
+  scrollChatToBottom();
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// JS execution confirmation card
+function showJsConfirmation(code) {
+  return new Promise((resolve) => {
+    const bubble = currentAssistantBubble || appendAssistantBubble();
+
+    if (yoloMode) {
+      // Auto-approve: show briefly then resolve
+      const card = document.createElement("div");
+      card.className = "js-confirm-card";
+      card.innerHTML = `
+        <div class="js-confirm-header">
+          <span>JavaScript</span>
+          <span class="js-confirm-badge">auto-approved</span>
+        </div>
+        <div class="js-confirm-code">${escapeHtml(code)}</div>
+      `;
+      bubble.appendChild(card);
+      scrollChatToBottom();
+      resolve(true);
+      return;
+    }
+
+    const card = document.createElement("div");
+    card.className = "js-confirm-card";
+    card.innerHTML = `
+      <div class="js-confirm-header">
+        <span>JavaScript — confirm execution</span>
+      </div>
+      <div class="js-confirm-code">${escapeHtml(code)}</div>
+      <div class="js-confirm-actions">
+        <button class="btn-skip">Skip</button>
+        <button class="btn-run">Run</button>
+      </div>
+    `;
+    bubble.appendChild(card);
+    scrollChatToBottom();
+
+    card.querySelector(".btn-run").onclick = () => {
+      card.querySelector(".js-confirm-actions").remove();
+      const header = card.querySelector(".js-confirm-header");
+      header.innerHTML = `<span>JavaScript</span><span class="js-confirm-badge">approved</span>`;
+      resolve(true);
+    };
+    card.querySelector(".btn-skip").onclick = () => {
+      card.querySelector(".js-confirm-actions").remove();
+      const header = card.querySelector(".js-confirm-header");
+      header.innerHTML = `<span>JavaScript</span><span style="font-size:10px;color:var(--text-muted)">skipped</span>`;
+      resolve(false);
+    };
+  });
+}
+
+// Render a full conversation from history (read-only)
+function renderConversation(messages) {
+  const chat = document.getElementById("chat-messages");
+  chat.innerHTML = "";
+
+  for (const msg of messages) {
+    if (msg.role === "system") continue;
+
+    if (msg.role === "user") {
+      if (typeof msg.content === "string") {
+        // Skip the initial page content message (it's very long)
+        if (msg.content.length > 500) continue;
+        appendUserBubble(msg.content);
+      }
+      continue;
+    }
+
+    if (msg.role === "assistant") {
+      const bubble = appendAssistantBubble();
+      if (typeof msg.content === "string" && msg.content.trim()) {
+        updateAssistantBubble(bubble, msg.content);
+      } else if (Array.isArray(msg.content)) {
+        // Anthropic format with content blocks
+        for (const block of msg.content) {
+          if (block.type === "text" && block.text.trim()) {
+            updateAssistantBubble(bubble, block.text);
+          }
+        }
+      }
+    }
+  }
+
+  scrollChatToBottom();
+}
+
+// === Conversation flow ===
+
+function getPageContent() {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      chrome.tabs.sendMessage(
+        tabs[0].id,
+        { action: "getContent" },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+            return;
+          }
+          if (!response || !response.text) {
+            reject(new Error(response?.error || "Unable to get page content"));
+            return;
+          }
+          resolve(response);
+        },
+      );
+    });
+  });
+}
+
+async function sendMessage(text) {
+  if (!text || !text.trim()) return;
+
+  const textArea = document.getElementById("text");
+  textArea.value = "";
+  textArea.style.height = "auto";
+  setProcessing(true);
+
+  appendUserBubble(text);
+
+  try {
+    // First message: fetch page content and build initial context
+    if (conversationMessages.length === 0) {
+      pageContent = await getPageContent();
+
+      const systemPrompt = buildSystemPrompt();
+      conversationMessages.push({ role: "system", content: systemPrompt });
+
+      // Add page content as first user message, then the actual question
+      let contextMsg = `Here is the page content:\n\nTitle: ${pageContent.title}\nURL: ${pageContent.url}\n\n${pageContent.text}`;
+      if (pageContent.selection) {
+        contextMsg += `\n\n---\nUser selected text: ${pageContent.selection}`;
+      }
+      conversationMessages.push({ role: "user", content: contextMsg });
+      conversationMessages.push({
+        role: "assistant",
+        content: "I've read the page content. How can I help?",
+      });
+    }
+
+    // Add user message
+    conversationMessages.push({ role: "user", content: text });
+
+    // Get LLM response with tool loop
+    await getLLMResponse();
+
+    // Save conversation
+    if (currentTabId && pageContent) {
+      saveConversation(currentTabId, conversationMessages, pageContent.url);
+    }
+  } catch (error) {
+    const bubble = appendAssistantBubble();
+    updateAssistantBubble(bubble, `**Error:** ${error.message}`);
+  } finally {
+    setProcessing(false);
+    textArea.focus();
+  }
+}
+
+async function getLLMResponse() {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get(
+      { service: "openai", apiKey: "", openAIBaseUrl: "" },
+      async function (items) {
+        const service = items.service;
+        const apiKey = items.apiKey;
+        const model = document.getElementById("model").value;
+        const baseUrl = items.openAIBaseUrl;
+
+        if (!apiKey) {
+          const b = appendAssistantBubble();
+          updateAssistantBubble(b, "Please set your API key in the [extension options](chrome://extensions).");
+          resolve();
+          return;
+        }
+        if (!model) {
+          const b = appendAssistantBubble();
+          updateAssistantBubble(b, "Please select a model first.");
+          resolve();
+          return;
+        }
+
+        chrome.storage.local.set({ model });
+
+        let currentMessages = [...conversationMessages];
+        let systemPrompt = "";
+
+        // Extract system message for Anthropic
+        if (service === "anthropic") {
+          currentMessages = currentMessages.filter((msg) => {
+            if (msg.role === "system") {
+              systemPrompt = msg.content;
+              return false;
+            }
+            return true;
+          });
+        }
+
+        const tools =
+          service === "anthropic"
+            ? getToolsAnthropic(isYouTube)
+            : getToolsOpenAI(isYouTube);
+
+        try {
+          // Tool calling loop
+          while (true) {
+            currentAssistantBubble = appendAssistantBubble();
+
+            const onChunk = (text) => {
+              updateAssistantBubble(currentAssistantBubble, text);
+            };
+
+            let response;
+            if (service === "anthropic") {
+              const raw = await fetchFromAnthropic(
+                baseUrl, model, apiKey, currentMessages, systemPrompt, tools,
+              );
+              response = await streamAnthropicResponse(raw, onChunk);
+            } else {
+              const raw = await fetchFromOpenAI(
+                baseUrl, model, apiKey, currentMessages, tools,
+              );
+              response = await streamResponse(raw, onChunk);
+            }
+
+            // If no content was streamed but we have tool calls, remove the empty bubble
+            if (!response.content?.trim() && response.toolCalls) {
+              currentAssistantBubble.remove();
+              currentAssistantBubble = appendAssistantBubble();
+            }
+
+            if (response.toolCalls && response.toolCalls.length > 0) {
+              // Parse all tool arguments upfront (may be incomplete JSON from streaming)
+              const parsedToolCalls = [];
+              for (const tc of response.toolCalls) {
+                let parsedArgs = {};
+                try {
+                  parsedArgs = tc.function.arguments
+                    ? JSON.parse(tc.function.arguments)
+                    : {};
+                } catch (e) {
+                  // Incomplete JSON from interrupted stream — skip this tool call
+                  console.warn("Failed to parse tool args:", tc.function.arguments, e);
+                  continue;
+                }
+                parsedToolCalls.push({ ...tc, parsedArgs });
+              }
+
+              if (parsedToolCalls.length === 0) {
+                // All tool calls had unparseable arguments — treat as final response
+                if (response.content) {
+                  conversationMessages.push({
+                    role: "assistant",
+                    content: response.content,
+                  });
+                }
+                setProcessing(false);
+                currentAssistantBubble = null;
+                resolve();
+                break;
+              }
+
+              // Add assistant message to conversation
+              if (service === "anthropic") {
+                const contentBlocks = [];
+                if (response.content) {
+                  contentBlocks.push({ type: "text", text: response.content });
+                }
+                for (const tc of parsedToolCalls) {
+                  contentBlocks.push({
+                    type: "tool_use",
+                    id: tc.id,
+                    name: tc.function.name,
+                    input: tc.parsedArgs,
+                  });
+                }
+                currentMessages.push({ role: "assistant", content: contentBlocks });
+                conversationMessages.push({ role: "assistant", content: contentBlocks });
+              } else {
+                const asstMsg = {
+                  role: "assistant",
+                  content: response.content || "",
+                  tool_calls: response.toolCalls,
+                };
+                currentMessages.push(asstMsg);
+                conversationMessages.push(asstMsg);
+              }
+
+              // Execute each tool
+              const anthropicResults = [];
+
+              for (const tc of parsedToolCalls) {
+                const toolName = tc.function.name;
+                const args = tc.parsedArgs;
+
+                // exec_javascript needs confirmation
+                if (toolName === "exec_javascript") {
+                  const approved = await showJsConfirmation(args.code);
+                  if (!approved) {
+                    const result = "User declined execution";
+                    appendToolCallDisplay(currentAssistantBubble, toolName, args, result, false);
+
+                    if (service === "anthropic") {
+                      anthropicResults.push({
+                        type: "tool_result",
+                        tool_use_id: tc.id,
+                        content: result,
+                      });
+                    } else {
+                      const toolMsg = { role: "tool", tool_call_id: tc.id, content: result };
+                      currentMessages.push(toolMsg);
+                      conversationMessages.push(toolMsg);
+                    }
+                    continue;
+                  }
+                }
+
+                // Handle local tools (not routed through content script)
+                let localResult = null;
+                if (toolName === "get_quick_prompts") {
+                  localResult = await handleGetQuickPrompts();
+                } else if (toolName === "set_quick_prompts") {
+                  localResult = await handleSetQuickPrompts(args.prompts);
+                }
+
+                if (localResult !== null) {
+                  appendToolCallDisplay(currentAssistantBubble, toolName, args, localResult, false);
+                  if (service === "anthropic") {
+                    anthropicResults.push({
+                      type: "tool_result",
+                      tool_use_id: tc.id,
+                      content: localResult,
+                    });
+                  } else {
+                    const toolMsg = { role: "tool", tool_call_id: tc.id, content: localResult };
+                    currentMessages.push(toolMsg);
+                    conversationMessages.push(toolMsg);
+                  }
+                  continue;
+                }
+
+                try {
+                  const result = await executeToolCall(toolName, args);
+                  appendToolCallDisplay(currentAssistantBubble, toolName, args, result, false);
+
+                  if (service === "anthropic") {
+                    anthropicResults.push({
+                      type: "tool_result",
+                      tool_use_id: tc.id,
+                      content: result,
+                    });
+                  } else {
+                    const toolMsg = { role: "tool", tool_call_id: tc.id, content: result };
+                    currentMessages.push(toolMsg);
+                    conversationMessages.push(toolMsg);
+                  }
+                } catch (error) {
+                  const errMsg = `Error: ${error.message}`;
+                  appendToolCallDisplay(currentAssistantBubble, toolName, args, errMsg, true);
+
+                  if (service === "anthropic") {
+                    anthropicResults.push({
+                      type: "tool_result",
+                      tool_use_id: tc.id,
+                      content: errMsg,
+                      is_error: true,
+                    });
+                  } else {
+                    const toolMsg = { role: "tool", tool_call_id: tc.id, content: errMsg };
+                    currentMessages.push(toolMsg);
+                    conversationMessages.push(toolMsg);
+                  }
+                }
+              }
+
+              if (service === "anthropic") {
+                const toolResultMsg = { role: "user", content: anthropicResults };
+                currentMessages.push(toolResultMsg);
+                conversationMessages.push(toolResultMsg);
+              }
+
+              // Continue loop for next LLM response
+            } else {
+              // Final response — add to conversation
+              if (response.content) {
+                conversationMessages.push({
+                  role: "assistant",
+                  content: response.content,
+                });
+              }
+
+              setProcessing(false);
+              currentAssistantBubble = null;
+              resolve();
+              break;
+            }
+          }
+        } catch (error) {
+          setProcessing(false);
+          const b = currentAssistantBubble || appendAssistantBubble();
+          updateAssistantBubble(b, `**Error:** ${error.message}`);
+          currentAssistantBubble = null;
+          reject(error);
+        }
+      },
+    );
+  });
+}
+
+// === New Chat ===
+
+function showWelcome() {
+  const chat = document.getElementById("chat-messages");
+  chat.innerHTML = `
+    <div class="welcome">
+      <svg class="welcome-illustration" width="80" height="80" viewBox="0 0 80 80" fill="none">
+        <circle cx="40" cy="44" r="24" fill="var(--surface)" stroke="var(--border)" stroke-width="2"/>
+        <circle cx="33" cy="39" r="3" fill="var(--accent)"/>
+        <circle cx="47" cy="39" r="3" fill="var(--accent)"/>
+        <path d="M35 50 Q40 55 45 50" stroke="var(--accent)" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <circle cx="62" cy="22" r="10" stroke="var(--text-muted)" stroke-width="2.5" fill="none"/>
+        <line x1="69" y1="29" x2="76" y2="36" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M14 18 L16 14 L18 18 L22 20 L18 22 L16 26 L14 22 L10 20 Z" fill="var(--border)"/>
+      </svg>
+      <h2>Yaq</h2>
+      <p>Ask anything about this page, or pick a quick prompt above.</p>
+    </div>
+  `;
+}
+
+function newChat() {
+  // Archive current conversation if it has content
+  if (conversationMessages.length >= 3 && pageContent) {
+    archiveConversation(conversationMessages, pageContent.url);
+  }
+
+  // Reset state
+  conversationMessages = [];
+  pageContent = null;
+  currentAssistantBubble = null;
+
+  showWelcome();
+
+  // Clear stored conversation
+  if (currentTabId) {
+    clearConversation(currentTabId);
+  }
+
+  document.getElementById("text").focus();
+  renderHistoryList(onHistorySelect);
+}
+
+function onHistorySelect(interaction) {
+  // Render archived conversation read-only
+  renderConversation(interaction.messages);
+}
+
+// === Model picker ===
+
+function updateModelLabel(model) {
+  const label = document.getElementById("model-label");
+  // Show short name: take last segment or truncate
+  const short = model.includes("/") ? model.split("/").pop() : model;
+  label.textContent = short.length > 15 ? short.substring(0, 15) + "..." : short;
+}
 
 function renderModelDropdown(filter) {
   const dropdown = document.getElementById("model-dropdown");
@@ -51,9 +663,9 @@ function renderModelDropdown(filter) {
     opt.textContent = m;
     opt.addEventListener("mousedown", (e) => {
       e.preventDefault();
-      const modelInput = document.getElementById("model");
-      modelInput.value = m;
+      document.getElementById("model").value = m;
       chrome.storage.local.set({ model: m });
+      updateModelLabel(m);
       dropdown.classList.remove("open");
     });
     dropdown.appendChild(opt);
@@ -66,16 +678,12 @@ function setupModelPicker() {
 
   modelInput.addEventListener("focus", () => {
     renderModelDropdown(modelInput.value);
-    if (allModels.length > 0) {
-      dropdown.classList.add("open");
-    }
+    if (allModels.length > 0) dropdown.classList.add("open");
   });
 
   modelInput.addEventListener("input", () => {
     renderModelDropdown(modelInput.value);
-    if (allModels.length > 0) {
-      dropdown.classList.add("open");
-    }
+    if (allModels.length > 0) dropdown.classList.add("open");
   });
 
   modelInput.addEventListener("blur", () => {
@@ -94,14 +702,9 @@ function populateModelPicker() {
     },
     async function (items) {
       const modelInput = document.getElementById("model");
+      if (items.model) modelInput.value = items.model;
+      modelInput.placeholder = "Model...";
 
-      // Restore saved model
-      if (items.model) {
-        modelInput.value = items.model;
-      }
-      modelInput.placeholder = "Select a model";
-
-      // Check cache
       const cache = items.modelCache;
       const now = Date.now();
       if (
@@ -114,1182 +717,186 @@ function populateModelPicker() {
         return;
       }
 
-      // Fetch fresh models
-      modelInput.placeholder = "Loading models...";
+      modelInput.placeholder = "Loading...";
       const models = await fetchModelsForService(
         items.service,
         items.openAIBaseUrl,
         items.apiKey,
       );
-
       allModels = models;
       if (models.length > 0) {
         chrome.storage.local.set({
           modelCache: {
             service: items.service,
             baseUrl: items.openAIBaseUrl,
-            models: models,
+            models,
             timestamp: now,
           },
         });
       }
-      modelInput.placeholder = "Select a model";
+      modelInput.placeholder = "Model...";
     },
   );
 }
 
-const defaultButtons = [
-  {
-    id: "summary",
-    name: "Summary",
-    prompt:
-      "Provide a concise summary of this content, highlighting the main points and key takeaways.",
-  },
-  {
-    id: "key-points",
-    name: "Key Points",
-    prompt:
-      "Extract the 3-5 most important points from this content as a bulleted list.",
-  },
-  {
-    id: "explain",
-    name: "Explain",
-    prompt:
-      "Explain this content in simple terms, as if you're teaching it to someone who's new to the topic.",
-  },
-  {
-    id: "tldr",
-    name: "TL;DR",
-    prompt: "Give me a TL;DR (too long; didn't read) version in 1-2 sentences.",
-  },
-  {
-    id: "questions",
-    name: "Questions",
-    prompt:
-      "Generate 3-5 thoughtful questions that this content answers or raises.",
-  },
-  {
-    id: "action-items",
-    name: "Action Items",
-    prompt:
-      "What are the actionable takeaways or next steps mentioned in this content?",
-  },
-  {
-    id: "context",
-    name: "Context",
-    prompt:
-      "What background knowledge or context is helpful to better understand this content?",
-  },
-  {
-    id: "critique",
-    name: "Critique",
-    prompt:
-      "What are the strengths and potential weaknesses or gaps in this content?",
-  },
-];
+// === Pills ===
 
-function timeAgo(timestamp) {
-  const seconds = Math.floor((Date.now() - new Date(timestamp)) / 1000);
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return minutes + "m ago";
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return hours + "h ago";
-  const days = Math.floor(hours / 24);
-  return days + "d ago";
-}
+function renderPills() {
+  chrome.storage.local.get({ buttons: defaultButtons }, function (items) {
+    const pills = document.getElementById("pills");
+    pills.innerHTML = "";
 
-function getInteractionTitle(interaction) {
-  const msgs = interaction.messages;
-  const secondLast = msgs[msgs.length - 2];
-  if (interaction.kind === "summary") return "Summary";
-  if (interaction.kind === "qa" && secondLast)
-    return secondLast.content.split("\n")[0];
-  if (secondLast) return secondLast.content.split("\n")[0];
-  return "Interaction";
-}
+    items.buttons.forEach((button, idx) => {
+      const pill = document.createElement("button");
+      pill.className = "pill";
+      pill.textContent = button.name;
+      pill.onclick = () => sendMessage(button.prompt);
+      pills.appendChild(pill);
 
-function showInteractionAtIndex(interactions, idx) {
-  if (idx >= 0 && idx < interactions.length) {
-    const lastMessage =
-      interactions[idx].messages[interactions[idx].messages.length - 1];
-    renderPartialHTML(lastMessage.content);
-
-    // Highlight active item
-    document.querySelectorAll(".history-item").forEach((el, i) => {
-      el.classList.toggle("active", i === idx);
-    });
-  }
-}
-
-function deleteInteraction(idx) {
-  chrome.storage.local.get({ interactions: [] }, function (items) {
-    const interactions = items.interactions;
-    interactions.splice(idx, 1);
-    chrome.storage.local.set({ interactions }, function () {
-      if (index === idx) index = -1;
-      else if (index > idx) index--;
-      renderHistoryList();
-    });
-  });
-}
-
-function renderHistoryList() {
-  chrome.storage.local.get({ interactions: [] }, function (items) {
-    const interactions = items.interactions;
-    const list = document.getElementById("history-list");
-    const count = document.getElementById("history-count");
-
-    count.textContent = interactions.length > 0 ? `(${interactions.length})` : "";
-
-    if (interactions.length === 0) {
-      list.innerHTML = '<div class="history-empty">No history yet</div>';
-      return;
-    }
-
-    list.innerHTML = "";
-
-    // Show most recent first
-    for (let i = interactions.length - 1; i >= 0; i--) {
-      const interaction = interactions[i];
-      const item = document.createElement("div");
-      item.className = "history-item" + (i === index ? " active" : "");
-
-      const hostname = new URL(interaction.url).hostname;
-      const title = getInteractionTitle(interaction);
-      const time = interaction.timestamp ? timeAgo(interaction.timestamp) : "";
-
-      item.innerHTML = `
-        <div class="history-item-content">
-          <div class="history-item-title">${title}</div>
-          <div class="history-item-meta">${hostname}</div>
-        </div>
-        <span class="history-item-time">${time}</span>
-        <button class="history-item-delete" title="Delete">&times;</button>
-      `;
-
-      const idx = i;
-      item.querySelector(".history-item-content").addEventListener(
-        "click",
-        () => {
-          index = idx;
-          showInteractionAtIndex(interactions, idx);
-        },
-      );
-      item.querySelector(".history-item-delete").addEventListener(
-        "click",
-        (e) => {
-          e.stopPropagation();
-          deleteInteraction(idx);
-        },
-      );
-
-      list.appendChild(item);
-    }
-  });
-}
-
-async function streamResponse(response) {
-  if (prevReader) {
-    prevReader.cancel();
-  }
-
-  const reader = response.body.getReader();
-  prevReader = reader;
-  // Show progress indicator when streaming begins
-  document.getElementById("progress-container").style.display = "flex";
-
-  const decoder = new TextDecoder("utf-8");
-  let done = false;
-  let result = "";
-  let output = "";
-  let remaining = false;
-  let toolCalls = [];
-
-  while (!done) {
-    const { value, done: doneReading } = await reader.read();
-    done = doneReading;
-    if (remaining) {
-      result += decoder.decode(value, { stream: !done });
-    } else {
-      result = decoder.decode(value, { stream: !done });
-    }
-
-    remaining = false;
-
-    // Process the stream as it comes in
-    if (value) {
-      const lines = result.split("\n");
-      for (const line of lines) {
-        if (line.startsWith("data: ")) {
-          if (line.substring(6) == "[DONE]") break;
-          try {
-            const data = JSON.parse(line.substring(6));
-
-            if (data.choices && data.choices.length > 0) {
-              const delta = data.choices[0].delta;
-
-              // Handle tool calls
-              if (delta.tool_calls) {
-                for (const toolCall of delta.tool_calls) {
-                  if (toolCall.index !== undefined) {
-                    if (!toolCalls[toolCall.index]) {
-                      toolCalls[toolCall.index] = {
-                        id: toolCall.id || "",
-                        type: toolCall.type || "function",
-                        function: {
-                          name: toolCall.function?.name || "",
-                          arguments: toolCall.function?.arguments || "",
-                        },
-                      };
-                    } else {
-                      if (toolCall.function?.name) {
-                        toolCalls[toolCall.index].function.name +=
-                          toolCall.function.name;
-                      }
-                      if (toolCall.function?.arguments) {
-                        toolCalls[toolCall.index].function.arguments +=
-                          toolCall.function.arguments;
-                      }
-                    }
-                  }
-                }
-              }
-
-              // Handle regular content
-              const content = delta.content || "";
-              output += content;
-              if (output.trim()) {
-                renderPartialHTML(output);
-              }
-            }
-          } catch (error) {
-            remaining = true;
-            result = line; // should be just the last line
+      // Ctrl+1-9 shortcuts
+      if (idx < 9) {
+        document.addEventListener("keydown", function (e) {
+          if (e.ctrlKey && e.key === (idx + 1).toString()) {
+            e.preventDefault();
+            sendMessage(button.prompt);
           }
-        }
+        });
       }
+    });
+  });
+}
+
+// === Quick prompt tools ===
+
+function handleGetQuickPrompts() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get({ buttons: defaultButtons }, (items) => {
+      resolve(JSON.stringify(items.buttons, null, 2));
+    });
+  });
+}
+
+function handleSetQuickPrompts(prompts) {
+  return new Promise((resolve) => {
+    const buttons = prompts.map((p) => ({
+      id: p.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, ""),
+      name: p.name,
+      prompt: p.prompt,
+    }));
+    chrome.storage.local.set({ buttons }, () => {
+      renderPills();
+      resolve(`Updated ${buttons.length} quick prompts: ${buttons.map((b) => b.name).join(", ")}`);
+    });
+  });
+}
+
+// === Textarea auto-resize ===
+
+function setupTextarea() {
+  const textarea = document.getElementById("text");
+
+  textarea.addEventListener("input", () => {
+    textarea.style.height = "auto";
+    textarea.style.height = Math.min(textarea.scrollHeight, 120) + "px";
+  });
+
+  textarea.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(textarea.value.trim());
     }
-  }
-
-  // Return both content and tool calls
-  return {
-    response: output,
-    toolCalls: toolCalls.length > 0 ? toolCalls : null,
-    content: output,
-  };
-}
-
-async function streamAnthropicResponse(response) {
-  if (prevReader) {
-    prevReader.cancel();
-  }
-
-  const reader = response.body.getReader();
-  prevReader = reader;
-  document.getElementById("progress-container").style.display = "flex";
-
-  const decoder = new TextDecoder("utf-8");
-  let done = false;
-  let buffer = "";
-  let output = "";
-  let toolCalls = [];
-  let currentToolIndex = -1;
-
-  while (!done) {
-    const { value, done: doneReading } = await reader.read();
-    done = doneReading;
-    buffer += decoder.decode(value, { stream: !done });
-
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
-
-    for (const line of lines) {
-      if (line.startsWith("data: ")) {
-        try {
-          const data = JSON.parse(line.substring(6));
-
-          if (data.type === "content_block_start") {
-            if (data.content_block.type === "tool_use") {
-              currentToolIndex++;
-              toolCalls[currentToolIndex] = {
-                id: data.content_block.id,
-                type: "function",
-                function: {
-                  name: data.content_block.name,
-                  arguments: "",
-                },
-              };
-            }
-          } else if (data.type === "content_block_delta") {
-            if (data.delta.type === "text_delta") {
-              output += data.delta.text;
-              if (output.trim()) {
-                renderPartialHTML(output);
-              }
-            } else if (data.delta.type === "input_json_delta") {
-              if (currentToolIndex >= 0) {
-                toolCalls[currentToolIndex].function.arguments +=
-                  data.delta.partial_json;
-              }
-            }
-          }
-        } catch (e) {
-          // Incomplete JSON line, ignore
-        }
-      }
-    }
-  }
-
-  return {
-    response: output,
-    toolCalls: toolCalls.length > 0 ? toolCalls : null,
-    content: output,
-  };
-}
-
-async function executeToolCall(toolName, args) {
-  return new Promise((resolve, reject) => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      chrome.tabs.sendMessage(
-        tabs[0].id,
-        { action: "executeTool", toolName, args },
-        (response) => {
-          if (response && response.success) {
-            resolve(response.result || "Success");
-          } else {
-            reject(new Error(response?.error || "Tool execution failed"));
-          }
-        },
-      );
-    });
   });
 }
 
-async function fetchFromOpenAI(openAIBaseUrl, model, apiKey, messages) {
-  if (apiKey === "" || model === "") {
-    document.getElementById("output").innerText =
-      "Please set your OpenAI API key and model in the options page";
-    return;
-  }
-
-  const requestBody = {
-    model: model,
-    stream: true,
-    messages: messages,
-  };
-
-  // Add tools if enabled
-  if (toolsEnabled()) {
-    requestBody.tools = [
-      {
-        type: "function",
-        function: {
-          name: "click_element",
-          description: "Click on a page element using CSS selector",
-          parameters: {
-            type: "object",
-            properties: {
-              selector: {
-                type: "string",
-                description: "CSS selector for the element to click",
-              },
-            },
-            required: ["selector"],
-          },
-        },
-      },
-      {
-        type: "function",
-        function: {
-          name: "scroll_to_element",
-          description: "Scroll to a page element using CSS selector",
-          parameters: {
-            type: "object",
-            properties: {
-              selector: {
-                type: "string",
-                description: "CSS selector for the element to scroll to",
-              },
-            },
-            required: ["selector"],
-          },
-        },
-      },
-      {
-        type: "function",
-        function: {
-          name: "input_text",
-          description:
-            "Enter text into an input field, textarea, or other text element using CSS selector",
-          parameters: {
-            type: "object",
-            properties: {
-              selector: {
-                type: "string",
-                description: "CSS selector for the input element",
-              },
-              text: {
-                type: "string",
-                description: "Text to enter into the field",
-              },
-              clear: {
-                type: "boolean",
-                description:
-                  "Whether to clear the field before entering text (default: true)",
-              },
-            },
-            required: ["selector", "text"],
-          },
-        },
-      },
-      {
-        type: "function",
-        function: {
-          name: "navigate_to",
-          description:
-            "Navigate to a different URL and wait for the page to load completely",
-          parameters: {
-            type: "object",
-            properties: {
-              url: {
-                type: "string",
-                description:
-                  "The URL to navigate to (can be relative or absolute)",
-              },
-            },
-            required: ["url"],
-          },
-        },
-      },
-    ];
-    requestBody.tool_choice = "auto";
-  }
-
-  const response = await fetch(openAIBaseUrl + "/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(requestBody),
-  });
-
-  return await streamResponse(response);
-}
-
-async function fetchFromAnthropic(
-  baseUrl,
-  model,
-  apiKey,
-  messages,
-  systemPrompt,
-) {
-  if (apiKey === "" || model === "") {
-    document.getElementById("output").innerText =
-      "Please set your Anthropic API key and model in the options page";
-    return;
-  }
-
-  const requestBody = {
-    model: model,
-    max_tokens: 8192,
-    stream: true,
-    messages: messages,
-  };
-
-  if (systemPrompt) {
-    requestBody.system = systemPrompt;
-  }
-
-  // Add tools if enabled
-  if (toolsEnabled()) {
-    requestBody.tools = [
-      {
-        name: "click_element",
-        description: "Click on a page element using CSS selector",
-        input_schema: {
-          type: "object",
-          properties: {
-            selector: {
-              type: "string",
-              description: "CSS selector for the element to click",
-            },
-          },
-          required: ["selector"],
-        },
-      },
-      {
-        name: "scroll_to_element",
-        description: "Scroll to a page element using CSS selector",
-        input_schema: {
-          type: "object",
-          properties: {
-            selector: {
-              type: "string",
-              description: "CSS selector for the element to scroll to",
-            },
-          },
-          required: ["selector"],
-        },
-      },
-      {
-        name: "input_text",
-        description:
-          "Enter text into an input field, textarea, or other text element using CSS selector",
-        input_schema: {
-          type: "object",
-          properties: {
-            selector: {
-              type: "string",
-              description: "CSS selector for the input element",
-            },
-            text: {
-              type: "string",
-              description: "Text to enter into the field",
-            },
-            clear: {
-              type: "boolean",
-              description:
-                "Whether to clear the field before entering text (default: true)",
-            },
-          },
-          required: ["selector", "text"],
-        },
-      },
-      {
-        name: "navigate_to",
-        description:
-          "Navigate to a different URL and wait for the page to load completely",
-        input_schema: {
-          type: "object",
-          properties: {
-            url: {
-              type: "string",
-              description:
-                "The URL to navigate to (can be relative or absolute)",
-            },
-          },
-          required: ["url"],
-        },
-      },
-    ];
-    requestBody.tool_choice = { type: "auto" };
-  }
-
-  const response = await fetch(baseUrl + "/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true",
-    },
-    body: JSON.stringify(requestBody),
-  });
-
-  return await streamAnthropicResponse(response);
-}
-
-async function getLLMResponse(messages) {
-  index = -1; // Reset index
-
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.get(
-      {
-        service: "openai",
-        apiKey: "",
-        openAIBaseUrl: "",
-      },
-      async function (items) {
-        const service = items.service;
-        const apiKey = items.apiKey;
-        const model = document.getElementById("model").value;
-        const openAIBaseUrl = items.openAIBaseUrl;
-
-        if (apiKey === "") {
-          document.getElementById("output").innerText =
-            "Please set your API key in the options page";
-          return;
-        }
-
-        if (model === "") {
-          document.getElementById("output").innerText =
-            "Please select a model";
-          return;
-        }
-
-        // Persist selected model
-        chrome.storage.local.set({ model: model });
-
-        // Show progress indicator
-        document.getElementById("progress-container").style.display = "flex";
-
-        document.getElementById("output").innerText =
-          `Processing using ${model}...`;
-
-        let currentMessages = [...messages];
-        let systemPrompt = "";
-        let finalResponse = "";
-        let toolCallsHtml = "";
-
-        // Extract system message for Anthropic
-        if (service === "anthropic") {
-          currentMessages = currentMessages.filter((msg) => {
-            if (msg.role === "system") {
-              systemPrompt = msg.content;
-              return false;
-            }
-            return true;
-          });
-        }
-
-        // Continue conversation until we get a non-tool response
-        while (true) {
-          let response;
-          if (service === "anthropic") {
-            response = await fetchFromAnthropic(
-              openAIBaseUrl,
-              model,
-              apiKey,
-              currentMessages,
-              systemPrompt,
-            );
-          } else {
-            response = await fetchFromOpenAI(
-              openAIBaseUrl,
-              model,
-              apiKey,
-              currentMessages,
-            );
-          }
-
-          if (response.toolCalls && response.toolCalls.length > 0) {
-            // Add assistant message with tool calls
-            if (service === "anthropic") {
-              const contentBlocks = [];
-              if (response.content) {
-                contentBlocks.push({ type: "text", text: response.content });
-              }
-              for (const toolCall of response.toolCalls) {
-                contentBlocks.push({
-                  type: "tool_use",
-                  id: toolCall.id,
-                  name: toolCall.function.name,
-                  input: JSON.parse(toolCall.function.arguments),
-                });
-              }
-              currentMessages.push({
-                role: "assistant",
-                content: contentBlocks,
-              });
-            } else {
-              currentMessages.push({
-                role: "assistant",
-                content: response.content || "",
-                tool_calls: response.toolCalls,
-              });
-            }
-
-            // Execute tools and add results
-            const anthropicToolResults = [];
-            for (const toolCall of response.toolCalls) {
-              try {
-                const result = await executeToolCall(
-                  toolCall.function.name,
-                  JSON.parse(toolCall.function.arguments),
-                );
-
-                if (service === "anthropic") {
-                  anthropicToolResults.push({
-                    type: "tool_result",
-                    tool_use_id: toolCall.id,
-                    content: result,
-                  });
-                } else {
-                  currentMessages.push({
-                    role: "tool",
-                    tool_call_id: toolCall.id,
-                    content: result,
-                  });
-                }
-
-                toolCallsHtml += `
-                  <div class="tool-call">
-                    🔧 ${result}
-                  </div>
-                `;
-              } catch (error) {
-                if (service === "anthropic") {
-                  anthropicToolResults.push({
-                    type: "tool_result",
-                    tool_use_id: toolCall.id,
-                    content: `Error: ${error.message}`,
-                    is_error: true,
-                  });
-                } else {
-                  currentMessages.push({
-                    role: "tool",
-                    tool_call_id: toolCall.id,
-                    content: `Error: ${error.message}`,
-                  });
-                }
-
-                const args = JSON.parse(toolCall.function.arguments);
-                const argsDisplay = Object.entries(args)
-                  .map(([key, value]) => `"${value}"`)
-                  .join(", ");
-
-                toolCallsHtml += `
-                  <div class="tool-call error">
-                    ❌ ${toolCall.function.name}(${argsDisplay}) → Error: ${error.message}
-                  </div>
-                `;
-              }
-            }
-
-            // For Anthropic, tool results go in a single user message
-            if (service === "anthropic") {
-              currentMessages.push({
-                role: "user",
-                content: anthropicToolResults,
-              });
-            }
-
-            // Update UI with current progress (show tool calls but don't include in AI response)
-            renderWithToolCalls("", toolCallsHtml);
-          } else {
-            // Final response without tools
-            finalResponse = response.response;
-            aiResponseOnly = finalResponse; // Store clean AI response for copy
-            // Hide progress indicator
-            document.getElementById("progress-container").style.display =
-              "none";
-
-            // Render final response with any tool calls that were executed
-            renderWithToolCalls(finalResponse, toolCallsHtml);
-
-            resolve({ provider: service, model, response: finalResponse });
-            break;
-          }
-        }
-      },
-    );
-  });
-}
-
-// Store the last n interactions with timestamp
-async function storeInteraction(kind, replace, url, messages, response) {
-  chrome.storage.local.get(
-    {
-      interactions: [],
-    },
-    function (items) {
-      messages.push({
-        role: "assistant",
-        content: response.response,
-      });
-
-      const interactions = items.interactions;
-      if (replace) {
-        interactions.pop();
-      }
-
-      interactions.push({
-        model: response.model,
-        provider: response.provider,
-        kind: kind,
-        url: url,
-        messages: messages,
-        timestamp: new Date().toISOString(),
-      });
-
-      // Remove messages until the json size is under 7MB (limit is 10MB)
-      while (true) {
-        let size = JSON.stringify(interactions).length;
-        if (size < 7000000) {
-          break;
-        }
-
-        interactions.shift();
-      }
-
-      chrome.storage.local.set({ interactions: interactions }, function () {
-        renderHistoryList();
-      });
-    },
-  );
-}
-
-function getLastInteraction(url) {
-  // Get the last interaction which is made from the same domain
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.get(
-      {
-        interactions: [],
-      },
-      function (items) {
-        const interactions = items.interactions;
-        let lastInteraction = null;
-        for (let i = interactions.length - 1; i >= 0; i--) {
-          if (interactions[i].url === url) {
-            lastInteraction = interactions[i];
-            break;
-          }
-        }
-        resolve(lastInteraction);
-      },
-    );
-  });
-}
-
-async function summarizeText(url, text, title) {
-  const messages = [
-    {
-      role: "system",
-      content:
-        "You are a summarizer bot. " +
-        "Help me summarize the text that I provide. " +
-        "Use emojis as necessary",
-    },
-    { role: "user", content: text },
-  ];
-
-  if (title && title.length > 0) {
-    messages.push({
-      role: "assistant",
-      content: "What is the title of the page?",
-    });
-    messages.push({ role: "user", content: title });
-  }
-
-  const response = await getLLMResponse(messages);
-  await storeInteraction("summary", false, url, messages, response);
-}
-
-async function answerQuestion(input, cont, question) {
-  const lastInteraction = await getLastInteraction(input.url);
-  let messages = [
-    {
-      role: "system",
-      content:
-        "You are a question answering bot. Be concise, yet informative. " +
-        "I'll provide you with the content first and then a question. " +
-        "Use emojies if necessary." +
-        (toolsEnabled()
-          ? " You have access to tools to interact with the page - use click_element(selector) to click elements, scroll_to_element(selector) to scroll to elements, input_text(selector, text) to enter text into form fields, and navigate_to(url) to navigate to other pages when helpful."
-          : ""),
-    },
-  ];
-
-  if (input.subtitles) {
-    messages.push({ role: "user", content: input.subtitles });
-  } else {
-    // Use HTML content if the toggle is enabled, otherwise use plain text
-    messages.push({
-      role: "user",
-      content: useHtmlContent() ? input.html : input.text,
-    });
-  }
-
-  if (input.title) {
-    messages.push({
-      role: "assistant",
-      content: "What is the title of the page?",
-    });
-    messages.push({ role: "user", content: input.title });
-  }
-
-  if (input.selection) {
-    messages.push({
-      role: "assistant",
-      content: "Was there any specific text to focus on?",
-    });
-    messages.push({ role: "user", content: input.selection });
-  }
-
-  messages.push({ role: "assistant", content: "What is the question?" });
-  messages.push({ role: "user", content: question });
-
-  if (lastInteraction && cont) {
-    messages = lastInteraction.messages;
-    messages.push({ role: "user", content: question });
-  }
-
-  const response = await getLLMResponse(messages);
-  await storeInteraction(
-    "qa",
-    lastInteraction && cont,
-    input.url,
-    messages,
-    response,
-  );
-}
-
-function continueConversation() {
-  return document.getElementById("continue").checked;
-}
-
-function useHtmlContent() {
-  return document.getElementById("use_html").checked;
-}
-
-function toolsEnabled() {
-  return document.getElementById("enable_tools").checked;
-}
-
-function summarize() {
-  document.getElementById("output").innerText = `Getting webpage content...`;
-  // Hide progress indicator initially (will show when LLM starts)
-  document.getElementById("progress-container").style.display = "none";
-
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    chrome.tabs.sendMessage(
-      tabs[0].id,
-      { action: "getContent" },
-      (response) => {
-        if (
-          response === undefined ||
-          response.text === undefined ||
-          response.text === ""
-        ) {
-          document.getElementById("output").innerText = response.error
-            ? response.error
-            : "Woopsie! Unable to get the webpage content.";
-          document.getElementById("copy").style.display = "none";
-          return;
-        }
-
-        if (response.subtitles && response.subtitles.length > 0) {
-          summarizeText(response.url, response.subtitles, response.title);
-        } else {
-          const content = useHtmlContent() ? response.html : response.text;
-          summarizeText(response.url, content, response.title);
-        }
-      },
-    );
-  });
-}
-
-function answer(question) {
-  document.getElementById("output").innerText = `Getting webpage content...`;
-  // Hide progress indicator initially (will show when LLM starts)
-  document.getElementById("progress-container").style.display = "none";
-  let cont = continueConversation();
-
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    chrome.tabs.sendMessage(
-      tabs[0].id,
-      { action: "getContent" },
-      (response) => {
-        if (
-          response === undefined ||
-          response.text === undefined ||
-          response.text === ""
-        ) {
-          document.getElementById("output").innerText = response.error
-            ? response.error
-            : "Woopsie! Unable to get the webpage content.";
-          document.getElementById("copy").style.display = "none";
-          return;
-        }
-
-        if (question == undefined || question === "") {
-          question = document.getElementById("text").value;
-          if (!question) {
-            document.getElementById("output").innerText =
-              "Please provide a question";
-            return;
-          }
-        }
-
-        answerQuestion(response, cont, question);
-      },
-    );
-  });
-}
-
-function renderPartialHTML(partialText) {
-  responseCache = partialText;
-  aiResponseOnly = partialText; // Update AI-only response for copy
-  const converter = new showdown.Converter();
-  converter.setFlavor("github"); // use GFM
-  const partialHtml = converter.makeHtml(partialText);
-  document.getElementById("output").innerHTML = partialHtml;
-  document.getElementById("copy").style.display = "block";
-
-  // If response is complete, hide progress indicator
-  if (!prevReader) {
-    document.getElementById("progress-container").style.display = "none";
-  }
-}
-
-function renderWithToolCalls(aiResponse, toolCallsHtml) {
-  // Update the cache with full content for display purposes
-  responseCache = aiResponse;
-  aiResponseOnly = aiResponse; // Store clean AI response for copy
-
-  const converter = new showdown.Converter();
-  converter.setFlavor("github"); // use GFM
-
-  let fullHtml = "";
-
-  // Add tool calls section if there are any
-  if (toolCallsHtml) {
-    fullHtml += `<div class="tool-calls-section">
-      ${toolCallsHtml}
-    </div>`;
-  }
-
-  // Add AI response if there is any
-  if (aiResponse && aiResponse.trim()) {
-    const aiHtml = converter.makeHtml(aiResponse);
-    fullHtml += aiHtml;
-  } else if (toolCallsHtml) {
-    // If we only have tool calls, show a message indicating processing
-    fullHtml += `<p><em>Tool execution completed. Waiting for assistant response...</em></p>`;
-  }
-
-  document.getElementById("output").innerHTML = fullHtml || "Processing...";
-  document.getElementById("copy").style.display = aiResponse ? "block" : "none";
-
-  // If response is complete, hide progress indicator
-  if (!prevReader) {
-    document.getElementById("progress-container").style.display = "none";
-  }
-}
-
-function renderButtons() {
-  chrome.storage.local.get(
-    {
-      buttons: defaultButtons,
-    },
-    function (items) {
-      const buttons = items.buttons;
-      document.getElementById("buttons").innerHTML = "";
-      buttons.forEach((button, index) => {
-        const buttonElement = document.createElement("button");
-        buttonElement.id = button.id;
-        buttonElement.innerText = button.name;
-        buttonElement.onclick = () => {
-          document.getElementById("text").value = button.prompt;
-          answer(button.prompt);
-        };
-        document.getElementById("buttons").appendChild(buttonElement);
-
-        // Add keyboard shortcut
-        if (index < 9) {
-          document.addEventListener("keydown", function (event) {
-            if (event.ctrlKey && event.key === (index + 1).toString()) {
-              event.preventDefault();
-              document.getElementById("text").value = button.prompt;
-              answer(button.prompt);
-            }
-          });
-        }
-      });
-    },
-  );
-}
+// === Init ===
 
 document.addEventListener("DOMContentLoaded", function () {
-  // Set up cancel button
-  document
-    .getElementById("cancel-request")
-    .addEventListener("click", function () {
-      if (prevReader) {
-        prevReader.cancel();
-        prevReader = null;
-        document.getElementById("progress-container").style.display = "none";
-        document.getElementById("output").innerHTML +=
-          "<p><em>Request cancelled by user</em></p>";
-      }
-    });
+  showWelcome();
 
-  // Restore preferences
-  chrome.storage.local.get(
-    {
-      useHtml: false,
-      enableTools: false,
-    },
-    function (items) {
-      document.getElementById("use_html").checked = items.useHtml;
-      document.getElementById("enable_tools").checked = items.enableTools;
+  // Get current tab info
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (tabs[0]) {
+      currentTabId = tabs[0].id;
+      isYouTube = tabs[0].url?.includes("youtube.com/watch") || false;
 
-      // If tools are enabled, force HTML on and disable the checkbox
-      if (items.enableTools) {
-        document.getElementById("use_html").checked = true;
-        document.getElementById("use_html").disabled = true;
-        const htmlLabel = document.querySelector('label[for="use_html"]');
-        htmlLabel.classList.add("disabled");
-        htmlLabel.setAttribute(
-          "data-hover-info",
-          "Required when tools are enabled for element selection",
-        );
-      }
-    },
-  );
-
-  // Save preferences when changed
-  document.getElementById("use_html").addEventListener("change", function () {
-    chrome.storage.local.set({ useHtml: this.checked });
-  });
-
-  document
-    .getElementById("enable_tools")
-    .addEventListener("change", function () {
-      chrome.storage.local.set({ enableTools: this.checked });
-
-      // Auto-enable HTML and disable the checkbox when tools are enabled
-      if (this.checked) {
-        document.getElementById("use_html").checked = true;
-        document.getElementById("use_html").disabled = true;
-        const htmlLabel = document.querySelector('label[for="use_html"]');
-        htmlLabel.classList.add("disabled");
-        htmlLabel.setAttribute(
-          "data-hover-info",
-          "Required when tools are enabled for element selection",
-        );
-        chrome.storage.local.set({ useHtml: true });
-      } else {
-        // Auto-disable HTML and re-enable the checkbox when tools are disabled
-        document.getElementById("use_html").checked = false;
-        document.getElementById("use_html").disabled = false;
-        const htmlLabel = document.querySelector('label[for="use_html"]');
-        htmlLabel.classList.remove("disabled");
-        htmlLabel.setAttribute(
-          "data-hover-info",
-          "Use HTML content for better structure (slower)",
-        );
-        chrome.storage.local.set({ useHtml: false });
-      }
-    });
-
-  document.getElementById("copy").onclick = () => {
-    // Copy only the AI response, not the tool calls
-    navigator.clipboard.writeText(aiResponseOnly || responseCache);
-    document.getElementById("copy").innerText = "Copied!";
-    setTimeout(() => {
-      document.getElementById("copy").innerText = "Copy response";
-    }, 2000);
-  };
-
-  renderHistoryList();
-  document.getElementById("answer").onclick = (_) => answer();
-  document.getElementById("summarize").onclick = summarize;
-  document.getElementById("text").focus();
-  setupModelPicker();
-  populateModelPicker();
-  renderButtons();
-
-  // Enter on text box should trigger answer
-  document.getElementById("text").addEventListener("keypress", (e) => {
-    if (e.key === "Enter") {
-      if (e.shiftKey) {
-        summarize();
-      } else {
-        answer();
-      }
+      // Restore conversation if exists
+      loadConversation(currentTabId, (data) => {
+        if (data && data.messages && data.messages.length > 0) {
+          conversationMessages = data.messages;
+          pageContent = { url: data.url, title: "", text: "", selection: "" };
+          renderConversation(data.messages);
+        }
+      });
     }
   });
+
+  // Load yolo mode preference
+  chrome.storage.local.get({ yoloMode: false }, (items) => {
+    yoloMode = items.yoloMode;
+    document.getElementById("yolo-mode").checked = yoloMode;
+  });
+
+  document.getElementById("yolo-mode").addEventListener("change", function () {
+    yoloMode = this.checked;
+    chrome.storage.local.set({ yoloMode });
+  });
+
+  // New chat button
+  document.getElementById("new-chat").addEventListener("click", newChat);
+
+  // Send button — sends when idle, stops when processing
+  document.getElementById("send").addEventListener("click", () => {
+    if (isProcessing) {
+      stopProcessing();
+    } else {
+      sendMessage(document.getElementById("text").value.trim());
+    }
+  });
+
+  // Bottom bar popups
+  const popupButtons = {
+    "history-btn": "history-popup",
+    "model-btn": "model-popup",
+    "settings-btn": "settings-popup",
+  };
+
+  function closePopups() {
+    for (const [btnId, popupId] of Object.entries(popupButtons)) {
+      document.getElementById(popupId).style.display = "none";
+      document.getElementById(btnId).classList.remove("active");
+    }
+  }
+
+  for (const [btnId, popupId] of Object.entries(popupButtons)) {
+    document.getElementById(btnId).addEventListener("click", (e) => {
+      e.stopPropagation();
+      const popup = document.getElementById(popupId);
+      const wasOpen = popup.style.display !== "none";
+      closePopups();
+      if (!wasOpen) {
+        popup.style.display = "block";
+        document.getElementById(btnId).classList.add("active");
+        // Focus model input when opening model popup
+        if (popupId === "model-popup") {
+          document.getElementById("model").focus();
+        }
+      }
+    });
+  }
+
+  // Close popups when clicking outside
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".bottom-bar")) {
+      closePopups();
+    }
+  });
+
+  // Setup
+  setupTextarea();
+  setupModelPicker();
+  populateModelPicker();
+  renderPills();
+  renderHistoryList(onHistorySelect);
+
+  document.getElementById("text").focus();
 });

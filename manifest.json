@@ -1,7 +1,7 @@
 {
   "name": "Yaq",
   "description": "Browser extension to do LLM stuff",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "manifest_version": 3,
   "content_scripts": [
     {
@@ -9,7 +9,7 @@
       "js": ["content.js"]
     }
   ],
-  "permissions": ["activeTab", "storage"],
+  "permissions": ["activeTab", "storage", "tabs"],
   "background": {
     "scripts": ["background.js"]
   },
