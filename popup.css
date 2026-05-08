@@ -255,47 +255,109 @@ input[type="text"]::placeholder {
     color: #fff;
 }
 
-.closer {
+/* History panel */
+.history-panel {
     background-color: var(--surface);
     border-top: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
-    padding: 0 10px;
     font-size: 12px;
 }
 
-.closer summary {
-    padding: 4px 0;
+.history-panel summary {
+    padding: 4px 10px;
     cursor: pointer;
     color: var(--text-muted);
     user-select: none;
+    font-size: 11px;
 }
 
-.mini {
-    padding: 6px 0 8px;
-    width: 100%;
-    max-width: 100%;
+#history-count {
+    font-weight: normal;
+    color: var(--text-muted);
 }
 
-.mini button {
-    border-radius: var(--radius);
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    text-align: center;
-    padding: 2px 6px;
-    font-size: 12px;
+.history-content {
+    padding: 0;
+}
+
+.history-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.history-item {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 4px 10px;
     cursor: pointer;
     transition: background-color var(--transition);
+    border-top: 1px solid var(--border);
 }
 
-.mini button:hover {
-    background: var(--accent-hover);
+.history-item:hover {
+    background: var(--bg);
 }
 
-#question {
-    margin-top: 6px;
+.history-item.active {
+    background: var(--bg);
+    border-left: 2px solid var(--accent);
+    padding-left: 8px;
+}
+
+.history-item-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.history-item-title {
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.history-item-meta {
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.history-item-time {
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.history-item-delete {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 11px;
+    padding: 0 2px;
+    opacity: 0;
+    transition: opacity var(--transition), color var(--transition);
+}
+
+.history-item:hover .history-item-delete {
+    opacity: 1;
+}
+
+.history-item-delete:hover {
+    color: #dc3545;
+}
+
+.history-empty {
+    padding: 8px 10px;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-style: italic;
 }
 
 #copy {

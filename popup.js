@@ -188,66 +188,105 @@ const defaultButtons = [
   },
 ];
 
-function showInteractionAtIndex(interactions, index) {
-  if (index < interactions.length) {
-    const lastMessageIndex = interactions[index].messages.length - 1;
-    const lastMessage = interactions[index].messages[lastMessageIndex];
-    const secondLastMessage =
-      interactions[index].messages[lastMessageIndex - 1];
+function timeAgo(timestamp) {
+  const seconds = Math.floor((Date.now() - new Date(timestamp)) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return minutes + "m ago";
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return hours + "h ago";
+  const days = Math.floor(hours / 24);
+  return days + "d ago";
+}
 
-    if (interactions[index].kind === "qa") {
-      document.getElementById("question").innerText =
-        "[" + (index + 1) + "] Q: " + secondLastMessage.content.split("\n")[0];
-    } else if (interactions[index].kind === "summary") {
-      document.getElementById("question").innerText =
-        "[" + (index + 1) + "] Summary";
-    } else {
-      document.getElementById("question").innerText =
-        "[" + (index + 1) + "] " + secondLastMessage.content.split("\n")[0];
-    }
+function getInteractionTitle(interaction) {
+  const msgs = interaction.messages;
+  const secondLast = msgs[msgs.length - 2];
+  if (interaction.kind === "summary") return "Summary";
+  if (interaction.kind === "qa" && secondLast)
+    return secondLast.content.split("\n")[0];
+  if (secondLast) return secondLast.content.split("\n")[0];
+  return "Interaction";
+}
 
-    let url = new URL(interactions[index].url);
-    document.getElementById("qurl").innerText = url.hostname;
-    document.getElementById("qurl").href = interactions[index].url;
-
+function showInteractionAtIndex(interactions, idx) {
+  if (idx >= 0 && idx < interactions.length) {
+    const lastMessage =
+      interactions[idx].messages[interactions[idx].messages.length - 1];
     renderPartialHTML(lastMessage.content);
+
+    // Highlight active item
+    document.querySelectorAll(".history-item").forEach((el, i) => {
+      el.classList.toggle("active", i === idx);
+    });
   }
 }
 
-function showNext() {
-  chrome.storage.local.get(
-    {
-      interactions: [],
-    },
-    function (items) {
-      const interactions = items.interactions;
-      if (index < interactions.length - 1) {
-        index++;
-      } else if (interactions.length > 0) {
-        index = 0;
-      }
-
-      showInteractionAtIndex(interactions, index);
-    },
-  );
+function deleteInteraction(idx) {
+  chrome.storage.local.get({ interactions: [] }, function (items) {
+    const interactions = items.interactions;
+    interactions.splice(idx, 1);
+    chrome.storage.local.set({ interactions }, function () {
+      if (index === idx) index = -1;
+      else if (index > idx) index--;
+      renderHistoryList();
+    });
+  });
 }
 
-function showPrev() {
-  chrome.storage.local.get(
-    {
-      interactions: [],
-    },
-    function (items) {
-      const interactions = items.interactions;
-      if (index <= 0) {
-        index = interactions.length - 1;
-      } else if (index < interactions.length && index > 0) {
-        index--;
-      }
+function renderHistoryList() {
+  chrome.storage.local.get({ interactions: [] }, function (items) {
+    const interactions = items.interactions;
+    const list = document.getElementById("history-list");
+    const count = document.getElementById("history-count");
 
-      showInteractionAtIndex(interactions, index);
-    },
-  );
+    count.textContent = interactions.length > 0 ? `(${interactions.length})` : "";
+
+    if (interactions.length === 0) {
+      list.innerHTML = '<div class="history-empty">No history yet</div>';
+      return;
+    }
+
+    list.innerHTML = "";
+
+    // Show most recent first
+    for (let i = interactions.length - 1; i >= 0; i--) {
+      const interaction = interactions[i];
+      const item = document.createElement("div");
+      item.className = "history-item" + (i === index ? " active" : "");
+
+      const hostname = new URL(interaction.url).hostname;
+      const title = getInteractionTitle(interaction);
+      const time = interaction.timestamp ? timeAgo(interaction.timestamp) : "";
+
+      item.innerHTML = `
+        <div class="history-item-content">
+          <div class="history-item-title">${title}</div>
+          <div class="history-item-meta">${hostname}</div>
+        </div>
+        <span class="history-item-time">${time}</span>
+        <button class="history-item-delete" title="Delete">&times;</button>
+      `;
+
+      const idx = i;
+      item.querySelector(".history-item-content").addEventListener(
+        "click",
+        () => {
+          index = idx;
+          showInteractionAtIndex(interactions, idx);
+        },
+      );
+      item.querySelector(".history-item-delete").addEventListener(
+        "click",
+        (e) => {
+          e.stopPropagation();
+          deleteInteraction(idx);
+        },
+      );
+
+      list.appendChild(item);
+    }
+  });
 }
 
 async function streamResponse(response) {
@@ -875,7 +914,9 @@ async function storeInteraction(kind, replace, url, messages, response) {
         interactions.shift();
       }
 
-      chrome.storage.local.set({ interactions: interactions });
+      chrome.storage.local.set({ interactions: interactions }, function () {
+        renderHistoryList();
+      });
     },
   );
 }
@@ -921,11 +962,6 @@ async function summarizeText(url, text, title) {
     });
     messages.push({ role: "user", content: title });
   }
-
-  document.getElementById("question").innerText = "Summary";
-  let purl = new URL(url);
-  document.getElementById("qurl").innerText = purl.hostname;
-  document.getElementById("qurl").href = url;
 
   const response = await getLLMResponse(messages);
   await storeInteraction("summary", false, url, messages, response);
@@ -979,11 +1015,6 @@ async function answerQuestion(input, cont, question) {
     messages = lastInteraction.messages;
     messages.push({ role: "user", content: question });
   }
-
-  document.getElementById("question").innerText = "Q: " + question;
-  let purl = new URL(input.url);
-  document.getElementById("qurl").innerText = purl.hostname;
-  document.getElementById("qurl").href = input.url;
 
   const response = await getLLMResponse(messages);
   await storeInteraction(
@@ -1243,8 +1274,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }, 2000);
   };
 
-  document.getElementById("next").onclick = showNext;
-  document.getElementById("prev").onclick = showPrev;
+  renderHistoryList();
   document.getElementById("answer").onclick = (_) => answer();
   document.getElementById("summarize").onclick = summarize;
   document.getElementById("text").focus();
