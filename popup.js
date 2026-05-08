@@ -977,7 +977,12 @@ document.addEventListener("DOMContentLoaded", function () {
     "history-btn": "history-popup",
     "model-btn": "model-popup",
     "settings-btn": "settings-popup",
+    "info-btn": "info-popup",
   };
+
+  // Populate version in info popup
+  const manifest = chrome.runtime.getManifest();
+  document.querySelector(".info-version").textContent = "v" + manifest.version;
 
   function closePopups() {
     for (const [btnId, popupId] of Object.entries(popupButtons)) {

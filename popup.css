@@ -170,6 +170,10 @@ body {
     color: var(--text);
 }
 
+.bottom-spacer {
+    flex: 1;
+}
+
 .badge {
     font-size: 11px;
     font-weight: 600;
@@ -733,6 +737,53 @@ body {
     color: var(--text-muted);
     font-size: 11px;
     font-style: italic;
+}
+
+/* === Info popup === */
+.info-content p {
+    margin: 4px 0 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.info-content strong {
+    font-size: 12px;
+}
+
+.info-version {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.info-features {
+    margin: 0 0 6px;
+    padding-left: 16px;
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.6;
+}
+
+.info-links {
+    font-size: 10px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.info-separator {
+    color: var(--border);
+}
+
+.info-link {
+    color: var(--text-muted);
+    text-decoration: none;
+}
+
+.info-link:hover {
+    color: var(--text);
+    text-decoration: underline;
 }
 
 /* === Kbd styling === */

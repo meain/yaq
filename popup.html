@@ -61,6 +61,14 @@
           <line x1="17" y1="16" x2="23" y2="16"></line>
         </svg>
       </button>
+      <span class="bottom-spacer"></span>
+      <button id="info-btn" class="bottom-icon-btn" title="About Yaq">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+      </button>
 
       <div id="history-popup" class="popup" style="display:none">
         <div id="history-list" class="history-list"></div>
@@ -82,6 +90,25 @@
             <span>Yolo mode</span>
             <span class="toggle-hint">Auto-approve JS</span>
           </label>
+        </div>
+      </div>
+
+      <div id="info-popup" class="popup" style="display:none">
+        <div class="popup-inner info-content">
+          <strong>Yaq</strong> <span class="info-version"></span>
+          <p>Chat with any web page using LLMs.</p>
+          <ul class="info-features">
+            <li>Inspect page structure and read HTML</li>
+            <li>Execute JavaScript on the page</li>
+            <li>Inject and remove CSS styles</li>
+            <li>Fetch YouTube subtitles</li>
+            <li>OpenAI and Anthropic support</li>
+          </ul>
+          <div class="info-links">
+            <span>Shortcut: <kbd>Ctrl+Shift+M</kbd></span>
+            <span class="info-separator">·</span>
+            <a href="https://github.com/meain/yaq" target="_blank" class="info-link">GitHub</a>
+          </div>
         </div>
       </div>
     </div>
