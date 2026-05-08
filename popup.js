@@ -216,12 +216,14 @@ function showJsConfirmation(code) {
       card.querySelector(".js-confirm-actions").remove();
       const header = card.querySelector(".js-confirm-header");
       header.innerHTML = `<span>JavaScript</span><span class="js-confirm-badge">approved</span>`;
+      document.getElementById("text").focus();
       resolve(true);
     };
     card.querySelector(".btn-skip").onclick = () => {
       card.querySelector(".js-confirm-actions").remove();
       const header = card.querySelector(".js-confirm-header");
       header.innerHTML = `<span>JavaScript</span><span style="font-size:10px;color:var(--text-muted)">skipped</span>`;
+      document.getElementById("text").focus();
       resolve(false);
     };
   });
