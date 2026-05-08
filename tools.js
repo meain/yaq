@@ -85,7 +85,7 @@ const WIDGET_TOOLS = [
   {
     name: "render_custom_widget",
     description:
-      "Render rich custom HTML and CSS directly in the chat as an inline widget. Use this to display tables, charts, styled lists, visual summaries, or any content that benefits from custom formatting beyond markdown. The CSS is scoped to the widget and won't affect the rest of the UI.",
+      "Render custom HTML/CSS inline in the chat as a widget (shadow DOM isolated). RARELY NEEDED — use markdown for tables, lists, summaries, comparisons, and all static content. Only use this for truly interactive elements (clickable UI, animations, embedded controls) that have no markdown equivalent.",
     parameters: {
       type: "object",
       properties: {
