@@ -132,12 +132,20 @@ function execJavascript(code) {
     }
     window.addEventListener("message", handler);
 
+    // Escape code for embedding in template
+    const escapedCode = code.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
     const script = document.createElement("script");
     script.textContent = `
       (function() {
         try {
-          const __yaq_result = (function() { ${code} })();
-          const __yaq_str = typeof __yaq_result === 'undefined' ? 'undefined'
+          var __yaq_code = \`${escapedCode}\`;
+          var __yaq_result;
+          try {
+            __yaq_result = eval(__yaq_code);
+          } catch(e) {
+            __yaq_result = (new Function(__yaq_code))();
+          }
+          var __yaq_str = typeof __yaq_result === 'undefined' ? 'undefined'
             : typeof __yaq_result === 'object' ? JSON.stringify(__yaq_result, null, 2)
             : String(__yaq_result);
           window.postMessage({ type: "${id}", result: __yaq_str }, "*");
