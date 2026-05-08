@@ -30,35 +30,6 @@ const serviceDefaults = {
   },
 };
 
-const serviceModels = {
-  openai: function () {
-    const baseUrl =
-      document.getElementById("url").value || serviceDefaults.openai.url;
-    const apiKey = document.getElementById("key").value;
-    return fetch(`${baseUrl}/models`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    })
-      .then((r) => r.json())
-      .then((data) => (data.data || []).map((model) => model.id))
-      .catch(() => []);
-  },
-  anthropic: function () {
-    const baseUrl =
-      document.getElementById("url").value || serviceDefaults.anthropic.url;
-    const apiKey = document.getElementById("key").value;
-    return fetch(`${baseUrl}/models`, {
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true",
-      },
-    })
-      .then((r) => r.json())
-      .then((data) => (data.data || []).map((model) => model.id))
-      .catch(() => []);
-  },
-};
-
 function showStatus(statusText) {
   var status = document.getElementById("status");
   status.textContent = statusText;
@@ -152,20 +123,9 @@ function populateButtonsUI(buttons) {
   }
 }
 
-async function populateModels(service) {
-  const modelSelect = document.getElementById("model");
-  modelSelect.innerHTML = "";
-  const models = await serviceModels[service]();
-  let modelStrings = "Available models: " + models.join(", ");
-  document
-    .getElementById("model-label")
-    .setAttribute("data-hover-info", modelStrings);
-}
-
 // Saves options to chrome.storage
 function save_options() {
   var service = document.getElementById("service").value;
-  var model = document.getElementById("model").value;
   var apiKey = document.getElementById("key").value;
   var openAIBaseUrl = document.getElementById("url").value;
   var buttons = collectButtonsFromUI();
@@ -187,14 +147,12 @@ function save_options() {
   chrome.storage.local.set(
     {
       service: service,
-      model: model,
       apiKey: apiKey,
       openAIBaseUrl: openAIBaseUrl,
       buttons: buttons,
     },
-    async function () {
+    function () {
       showStatus("Options saved.");
-      await populateModels(service);
     },
   );
 }
@@ -205,19 +163,16 @@ function restore_options() {
   chrome.storage.local.get(
     {
       service: "openai",
-      model: "gpt-4o-mini",
       apiKey: "",
       buttons: defaultButtons,
       openAIBaseUrl: "https://api.openai.com/v1",
     },
-    async function (items) {
+    function (items) {
       document.getElementById("service").value = items.service;
-      document.getElementById("model").value = items.model;
       document.getElementById("key").value = items.apiKey;
       document.getElementById("url").value = items.openAIBaseUrl;
       updateServiceUI(items.service);
       populateButtonsUI(items.buttons);
-      await populateModels(items.service);
     },
   );
 }
@@ -240,5 +195,4 @@ document
   .addEventListener("click", () => addButton());
 document.getElementById("service").addEventListener("change", function () {
   updateServiceUI(this.value);
-  populateModels(this.value);
 });

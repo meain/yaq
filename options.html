@@ -193,31 +193,6 @@
         background-color: var(--accent-hover);
       }
 
-      #model-label {
-        cursor: pointer;
-        text-decoration: underline dotted var(--border);
-        text-underline-offset: 2px;
-        position: relative;
-      }
-
-      #model-label:hover::after {
-        content: attr(data-hover-info);
-        position: absolute;
-        left: 0;
-        top: 16px;
-        background-color: var(--bg);
-        padding: 4px 8px;
-        border-radius: var(--radius);
-        border: 1px solid var(--border);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        min-width: 200px;
-        z-index: 10;
-        font-size: 11px;
-        font-weight: 400;
-        text-transform: none;
-        letter-spacing: normal;
-        color: var(--text);
-      }
     </style>
   </head>
   <body>
@@ -234,14 +209,6 @@
 
     <label for="url">Endpoint</label>
     <input type="text" id="url" placeholder="https://api.openai.com/v1" />
-
-    <label
-      data-hover-info="Could not fetch list of models"
-      id="model-label"
-      for="model"
-      >Model</label
-    >
-    <input type="text" id="model" />
 
     <div class="buttons-header">
       <h3>Buttons</h3>

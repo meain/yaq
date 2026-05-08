@@ -3,6 +3,141 @@ let responseCache = "";
 let aiResponseOnly = ""; // Store only AI response for copy functionality
 let index = -1;
 
+const MODEL_CACHE_TTL = 24 * 60 * 60 * 1000; // 1 day
+
+function fetchModelsForService(service, baseUrl, apiKey) {
+  if (service === "anthropic") {
+    return fetch(`${baseUrl}/models`, {
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+    })
+      .then((r) => r.json())
+      .then((data) => (data.data || []).map((m) => m.id))
+      .catch(() => []);
+  }
+  return fetch(`${baseUrl}/models`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  })
+    .then((r) => r.json())
+    .then((data) => (data.data || []).map((m) => m.id))
+    .catch(() => []);
+}
+
+let allModels = [];
+
+function renderModelDropdown(filter) {
+  const dropdown = document.getElementById("model-dropdown");
+  dropdown.innerHTML = "";
+
+  const query = (filter || "").toLowerCase();
+  const filtered = query
+    ? allModels.filter((m) => m.toLowerCase().includes(query))
+    : allModels;
+
+  if (filtered.length === 0 && allModels.length > 0) {
+    const empty = document.createElement("div");
+    empty.className = "model-dropdown-empty";
+    empty.textContent = "No matching models";
+    dropdown.appendChild(empty);
+    return;
+  }
+
+  filtered.forEach((m) => {
+    const opt = document.createElement("div");
+    opt.className = "model-option";
+    opt.textContent = m;
+    opt.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      const modelInput = document.getElementById("model");
+      modelInput.value = m;
+      chrome.storage.local.set({ model: m });
+      dropdown.classList.remove("open");
+    });
+    dropdown.appendChild(opt);
+  });
+}
+
+function setupModelPicker() {
+  const modelInput = document.getElementById("model");
+  const dropdown = document.getElementById("model-dropdown");
+
+  modelInput.addEventListener("focus", () => {
+    renderModelDropdown(modelInput.value);
+    if (allModels.length > 0) {
+      dropdown.classList.add("open");
+    }
+  });
+
+  modelInput.addEventListener("input", () => {
+    renderModelDropdown(modelInput.value);
+    if (allModels.length > 0) {
+      dropdown.classList.add("open");
+    }
+  });
+
+  modelInput.addEventListener("blur", () => {
+    dropdown.classList.remove("open");
+  });
+}
+
+function populateModelPicker() {
+  chrome.storage.local.get(
+    {
+      service: "openai",
+      apiKey: "",
+      openAIBaseUrl: "https://api.openai.com/v1",
+      model: "",
+      modelCache: null,
+    },
+    async function (items) {
+      const modelInput = document.getElementById("model");
+
+      // Restore saved model
+      if (items.model) {
+        modelInput.value = items.model;
+      }
+      modelInput.placeholder = "Select a model";
+
+      // Check cache
+      const cache = items.modelCache;
+      const now = Date.now();
+      if (
+        cache &&
+        cache.service === items.service &&
+        cache.baseUrl === items.openAIBaseUrl &&
+        now - cache.timestamp < MODEL_CACHE_TTL
+      ) {
+        allModels = cache.models;
+        return;
+      }
+
+      // Fetch fresh models
+      modelInput.placeholder = "Loading models...";
+      const models = await fetchModelsForService(
+        items.service,
+        items.openAIBaseUrl,
+        items.apiKey,
+      );
+
+      allModels = models;
+      if (models.length > 0) {
+        chrome.storage.local.set({
+          modelCache: {
+            service: items.service,
+            baseUrl: items.openAIBaseUrl,
+            models: models,
+            timestamp: now,
+          },
+        });
+      }
+      modelInput.placeholder = "Select a model";
+    },
+  );
+}
+
 const defaultButtons = [
   {
     id: "summary",
@@ -525,20 +660,28 @@ async function getLLMResponse(messages) {
       {
         service: "openai",
         apiKey: "",
-        model: "",
         openAIBaseUrl: "",
       },
       async function (items) {
         const service = items.service;
         const apiKey = items.apiKey;
-        const model = items.model;
+        const model = document.getElementById("model").value;
         const openAIBaseUrl = items.openAIBaseUrl;
 
-        if (apiKey === "" || model === "") {
+        if (apiKey === "") {
           document.getElementById("output").innerText =
-            "Please set your API key and model in the options page";
+            "Please set your API key in the options page";
           return;
         }
+
+        if (model === "") {
+          document.getElementById("output").innerText =
+            "Please select a model";
+          return;
+        }
+
+        // Persist selected model
+        chrome.storage.local.set({ model: model });
 
         // Show progress indicator
         document.getElementById("progress-container").style.display = "flex";
@@ -1105,6 +1248,8 @@ document.addEventListener("DOMContentLoaded", function () {
   document.getElementById("answer").onclick = (_) => answer();
   document.getElementById("summarize").onclick = summarize;
   document.getElementById("text").focus();
+  setupModelPicker();
+  populateModelPicker();
   renderButtons();
 
   // Enter on text box should trigger answer
