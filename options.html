@@ -3,124 +3,227 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Extension Options</title>
+    <title>Yaq Options</title>
     <style>
+      :root {
+        --radius: 6px;
+        --accent: #1a1a2e;
+        --accent-hover: #2d2d44;
+        --surface: #f5f6f8;
+        --border: #e0e2e6;
+        --text: #1e1e1e;
+        --text-muted: #6b7280;
+        --bg: #fff;
+        --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+        --transition: 150ms ease;
+      }
+
+      * { box-sizing: border-box; }
+
       body {
-        font-family: Arial, sans-serif;
-        margin: 10px;
-        font-size: 14px;
+        font-family: var(--font);
+        margin: 0;
+        padding: 12px;
+        font-size: 13px;
+        color: var(--text);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
       }
+
       h2 {
-        margin-top: 0;
-        color: #333;
+        margin: 0 0 12px;
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text);
       }
+
       label {
         display: block;
-        margin: 10px 0 5px;
+        margin: 8px 0 3px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
       }
+
       input[type="text"],
-      select,
-      textarea {
+      select {
         width: 100%;
-        padding: 5px;
-        margin-bottom: 10px;
-        border: 1px solid #ccc;
-        border-radius: 3px;
-        box-sizing: border-box;
+        padding: 6px 8px;
+        margin-bottom: 2px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        font-family: var(--font);
+        font-size: 13px;
+        color: var(--text);
+        background: var(--bg);
+        transition: border-color var(--transition), box-shadow var(--transition);
       }
-      textarea {
-        height: 100px;
-        resize: vertical;
+
+      input[type="text"]:focus,
+      select:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px rgba(26,26,46,0.1);
       }
+
+      input[type="text"]::placeholder {
+        color: var(--text-muted);
+      }
+
       .button-config {
-        border: 1px solid #ddd;
-        border-radius: 3px;
-        padding: 8px;
-        margin: 5px 0;
-        background-color: #f9f9f9;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 6px 8px;
+        margin: 4px 0;
+        background-color: var(--surface);
       }
+
       .button-row {
         display: flex;
-        gap: 5px;
+        gap: 4px;
         align-items: center;
         justify-content: space-between;
       }
+
       .button-row input {
         margin-bottom: 0;
-        padding: 3px 5px;
+        padding: 3px 6px;
         font-size: 12px;
       }
+
       .button-row input[name="button-name"] {
         width: 120px;
       }
+
       .button-prompt {
         width: 100%;
-        height: 40px;
+        height: 36px;
         resize: vertical;
-        margin-top: 5px;
-        padding: 3px 5px;
+        margin-top: 4px;
+        padding: 4px 6px;
+        font-family: var(--font);
         font-size: 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        color: var(--text);
+        transition: border-color var(--transition);
       }
+
+      .button-prompt:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+
       .reorder-btn {
-        padding: 1px;
-      }
-      .add-button {
-        padding: 5px 10px;
-        border: none;
-        border-radius: 3px;
+        padding: 2px 4px;
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 4px;
         cursor: pointer;
-        font-size: 12px;
+        color: var(--text-muted);
+        font-size: 11px;
+        transition: all var(--transition);
       }
+
+      .reorder-btn:hover {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+
+      .add-button {
+        padding: 4px 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        cursor: pointer;
+        font-family: var(--font);
+        font-size: 12px;
+        background: var(--bg);
+        color: var(--text);
+        transition: all var(--transition);
+      }
+
+      .add-button:hover {
+        background: var(--surface);
+      }
+
       .buttons-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin: 20px 0 10px 0;
+        margin: 14px 0 6px 0;
+        padding-top: 10px;
+        border-top: 1px solid var(--border);
       }
+
       .buttons-header h3 {
         margin: 0;
+        font-size: 13px;
+        font-weight: 600;
       }
+
       #status {
-        margin-top: 10px;
-        padding: 5px;
+        margin-top: 6px;
+        padding: 4px;
         text-align: center;
-        font-weight: bold;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--accent);
       }
+
       #save {
         width: 100%;
         padding: 8px;
-        background-color: #4caf50;
-        color: white;
+        margin-top: 10px;
+        background-color: var(--accent);
+        color: #fff;
         border: none;
-        border-radius: 3px;
+        border-radius: var(--radius);
+        font-family: var(--font);
+        font-size: 13px;
+        font-weight: 500;
         cursor: pointer;
+        transition: background-color var(--transition);
       }
+
       #save:hover {
-        background-color: #45a049;
+        background-color: var(--accent-hover);
       }
 
       #model-label {
         cursor: pointer;
-        text-decoration: underline dotted;
+        text-decoration: underline dotted var(--border);
+        text-underline-offset: 2px;
+        position: relative;
       }
+
       #model-label:hover::after {
         content: attr(data-hover-info);
         position: absolute;
         left: 0;
-        top: 20px;
-        background-color: #fff;
-        padding: 5px 10px;
-        border-radius: var(--border-radius);
-        border: 1px dashed #ccc;
+        top: 16px;
+        background-color: var(--bg);
+        padding: 4px 8px;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         min-width: 200px;
         z-index: 10;
+        font-size: 11px;
+        font-weight: 400;
+        text-transform: none;
+        letter-spacing: normal;
+        color: var(--text);
       }
     </style>
   </head>
   <body>
-    <h2>Extension Options</h2>
+    <h2>Yaq Options</h2>
 
-    <label for="service">Service Type</label>
+    <label for="service">Service</label>
     <select id="service">
       <option value="openai">OpenAI</option>
       <option value="anthropic">Anthropic</option>
@@ -141,12 +244,12 @@
     <input type="text" id="model" />
 
     <div class="buttons-header">
-      <h3>Buttons Configuration</h3>
-      <button type="button" class="add-button" id="add-button">Add New</button>
+      <h3>Buttons</h3>
+      <button type="button" class="add-button" id="add-button">+ Add</button>
     </div>
     <div id="buttons-container"></div>
 
-    <button id="save">Save Options</button>
+    <button id="save">Save</button>
     <div id="status"></div>
 
     <script src="options.js"></script>

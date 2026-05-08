@@ -1,6 +1,17 @@
 :root {
-    --border-radius: 3px;
-    --primary-color: #000;
+    --radius: 6px;
+    --accent: #1a1a2e;
+    --accent-hover: #2d2d44;
+    --surface: #f5f6f8;
+    --border: #e0e2e6;
+    --text: #1e1e1e;
+    --text-muted: #6b7280;
+    --bg: #fff;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    --mono: 'SFMono-Regular', 'Consolas', 'Liberation Mono', 'Menlo', monospace;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-md: 0 2px 8px rgba(0,0,0,0.08);
+    --transition: 150ms ease;
 }
 
 * {
@@ -9,265 +20,331 @@
 
 kbd {
     display: inline-block;
-    padding: 3px 5px;
+    padding: 2px 5px;
     font-size: 11px;
-    line-height: 10px;
-    color: #444d56;
+    line-height: 12px;
+    font-family: var(--mono);
+    color: var(--text-muted);
     vertical-align: middle;
-    background-color: #fafbfc;
-    border: solid 1px #c6cbd1;
-    border-bottom-color: #959da5;
-    border-radius: 3px;
-    box-shadow: inset 0 -1px 0 #959da5;
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
 }
 
 body {
-    font-family: Arial, sans-serif;
-    font-size: 14px;
+    font-family: var(--font);
+    font-size: 13px;
+    color: var(--text);
     margin: 0;
     height: 100vh;
     min-height: 600px;
-
     width: 100%;
     overflow-y: scroll;
+    background: var(--bg);
+    -webkit-font-smoothing: antialiased;
 }
 
 #container {
-    border-radius: var(--border-radius);
     width: 100%;
 }
 
 .header {
-    background: #f1f1f1;
+    background: var(--surface);
     padding: 10px;
+    border-bottom: 1px solid var(--border);
 }
 
 .input-group {
     display: flex;
     align-items: center;
-    border: 1px solid var(--primary-color);
-    border-radius: var(--border-radius);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     overflow: hidden;
+    background: var(--bg);
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow var(--transition), border-color var(--transition);
+}
+
+.input-group:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(26,26,46,0.1);
 }
 
 .primary > button {
-    border-left: 1px dotted white;
+    border-left: 1px solid rgba(255,255,255,0.15);
 }
 
 input[type="text"] {
     flex: 1;
-    padding: 8px;
+    padding: 7px 10px;
     border: none;
+    font-family: var(--font);
+    font-size: 13px;
+    color: var(--text);
+    background: transparent;
+    outline: none;
+}
+
+input[type="text"]::placeholder {
+    color: var(--text-muted);
 }
 
 .input-group > button {
-    padding: 8px 12px;
+    padding: 7px 12px;
     border: none;
-    background-color: var(--primary-color);
-    color: white;
+    background-color: var(--accent);
+    color: #fff;
     cursor: pointer;
-    box-shadow: none;
-    border-bottom: 3px solid var(--primary-color);
+    font-family: var(--font);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    transition: background-color var(--transition);
 }
 
 .input-group > button:hover {
-    background-color: #111;
-    border-bottom: 3px solid #e9ffe9;
+    background-color: var(--accent-hover);
 }
 
 #output {
-    background-color: #fff;
-    border-radius: var(--border-radius);
+    background-color: var(--bg);
     max-width: 100%;
-    user-select: text !important; /* needed in sidebar mode */
-    padding: 10px;
+    user-select: text !important;
+    padding: 10px 12px;
+    line-height: 1.5;
+}
+
+#output h2,
+#output h4 {
+    margin: 8px 0 4px;
+}
+
+#output ul {
+    margin: 2px 0 6px;
+    padding-left: 20px;
+}
+
+#output li {
+    margin: 1px 0;
 }
 
 .flexi {
     display: flex;
     flex-wrap: wrap;
-    margin-top: 10px;
+    gap: 4px;
+    margin-top: 8px;
     width: 100%;
 }
 
 .flexi > button {
     flex: 1;
-    height: 100%;
-    width: 100%;
-    min-width: 100px;
-    border-radius: var(--border-radius);
-    margin: 1px;
+    min-width: 80px;
+    border-radius: var(--radius);
     text-align: center;
-    padding: 2px 2px;
-    background: none;
-    border: 1px solid #777;
-    color: #333;
+    padding: 4px 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all var(--transition);
 }
 
 .flexi > button:hover {
-    background: #777;
-    color: white;
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
 }
 
 .closer {
-    background-color: #f1f1f1;
-    border-top: 1px dotted #ccc;
-    border-bottom: 1px dotted #ccc;
-    padding: 0px 10px;
+    background-color: var(--surface);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 0 10px;
+    font-size: 12px;
+}
+
+.closer summary {
+    padding: 4px 0;
+    cursor: pointer;
+    color: var(--text-muted);
+    user-select: none;
 }
 
 .mini {
-    padding: 10px;
+    padding: 6px 0 8px;
     width: 100%;
     max-width: 100%;
 }
 
 .mini button {
-    border-radius: var(--border-radius);
-    background: black;
-    color: white;
+    border-radius: var(--radius);
+    background: var(--accent);
+    color: #fff;
     border: none;
     text-align: center;
-    padding: 1px 4px;
-    margin: 0px;
-    height: 100%;
+    padding: 2px 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color var(--transition);
+}
+
+.mini button:hover {
+    background: var(--accent-hover);
 }
 
 #question {
-    margin-top: 10px;
+    margin-top: 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 #copy {
     display: none;
-    padding: 3px 5px;
+    padding: 4px 8px;
     border: none;
-    background-color: var(--primary-color);
-    color: white;
+    background-color: var(--surface);
+    color: var(--text-muted);
     cursor: pointer;
-    font-size: 10px;
-    box-shadow: none;
-    border-bottom: none;
+    font-family: var(--font);
+    font-size: 11px;
+    border-top: 1px solid var(--border);
+    transition: all var(--transition);
+    width: 100%;
+    text-align: left;
 }
 
-#question {
-    overflow: elipsis;
+#copy:hover {
+    background-color: var(--border);
+    color: var(--text);
 }
 
 .checkbox-group {
     display: flex;
+    gap: 2px;
+    margin-top: 6px;
 }
 
 .checkbox-container {
     display: flex;
     align-items: center;
     position: relative;
-    padding: 0 10px 0 0;
+    padding: 0 8px 0 0;
 }
 
 .checkbox-container input[type="checkbox"] {
-    margin-right: 8px;
+    margin: 0 4px 0 0;
+    accent-color: var(--accent);
 }
 
 .checkbox-container label {
     position: relative;
     cursor: pointer;
-    text-decoration: underline dotted;
+    font-size: 11px;
+    color: var(--text-muted);
+    text-decoration: underline dotted var(--border);
+    text-underline-offset: 2px;
+}
+
+.checkbox-container label:hover {
+    color: var(--text);
 }
 
 .checkbox-container label:hover::after {
     content: attr(data-hover-info);
     position: absolute;
     left: 0;
-    top: 20px;
-    background-color: #fff;
-    padding: 5px 10px;
-    border-radius: var(--border-radius);
-    border: 1px dashed #ccc;
-    min-width: 200px;
+    top: 18px;
+    background-color: var(--bg);
+    padding: 4px 8px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-md);
+    min-width: 180px;
     z-index: 10;
+    font-size: 11px;
+    color: var(--text);
+    text-decoration: none;
 }
 
 .checkbox-container input[type="checkbox"]:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
 }
 
 .checkbox-container label.disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
-    color: #999;
+    color: var(--text-muted);
 }
 
-/* Progress indicator styles */
+/* Progress indicator */
 .progress-container {
-    background-color: #f1f1f1;
-    border-top: 1px dotted #ccc;
-    border-bottom: 1px dotted #ccc;
-    padding: 3px 10px;
+    background-color: var(--surface);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 4px 10px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 }
 
 .processing-text {
     flex: 1;
-    font-weight: 500;
+    font-size: 12px;
+    color: var(--text-muted);
 }
 
 .spinner {
-    width: 16px;
-    height: 16px;
-    border: 2px solid #ccc;
-    border-top: 2px solid var(--primary-color);
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
     border-radius: 50%;
-    animation: spin 1s linear infinite;
+    animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
-    0% {
-        transform: rotate(0deg);
-    }
-    100% {
-        transform: rotate(360deg);
-    }
+    to { transform: rotate(360deg); }
 }
 
 #cancel-request {
-    border-radius: var(--border-radius);
-    background: black;
-    color: white;
-    border: none;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
     text-align: center;
-    padding: 3px 6px;
-    margin: 0px;
+    padding: 2px 8px;
+    font-family: var(--font);
+    font-size: 11px;
     cursor: pointer;
+    transition: all var(--transition);
 }
 
-@keyframes progress {
-    0% {
-        transform: translateX(-100%);
-    }
-    100% {
-        transform: translateX(300%);
-    }
+#cancel-request:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
 }
 
-/* Tool calls styling */
+/* Tool calls */
 .tool-calls-section {
-    margin-bottom: 15px;
-    padding: 8px 12px;
-    background-color: #f8f9fa;
-    border-left: 3px solid #dfdfdf;
-    border-radius: var(--border-radius);
-    font-size: 13px;
+    margin-bottom: 12px;
+    padding: 6px 10px;
+    background-color: var(--surface);
+    border-left: 3px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 12px;
 }
 
 .tool-call {
-    margin: 4px 0;
-    font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', 'Menlo', monospace;
-    color: #24292e;
+    margin: 3px 0;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
 }
 
 .tool-call.error {
-    color: #cf222e;
+    color: #dc3545;
 }
