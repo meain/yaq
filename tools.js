@@ -102,6 +102,70 @@ const WIDGET_TOOLS = [
       required: ["html"],
     },
   },
+  {
+    name: "render_form",
+    description:
+      "Render an interactive form in the chat and wait for the user to fill it out and submit. Returns the submitted values as a JSON object keyed by field name. Use this when you need structured input from the user — e.g. collecting settings, filters, parameters, or any multi-field input. The form is styled automatically.",
+    parameters: {
+      type: "object",
+      properties: {
+        fields: {
+          type: "array",
+          description: "Array of form field definitions",
+          items: {
+            type: "object",
+            properties: {
+              name: {
+                type: "string",
+                description: "Field identifier (used as key in the returned JSON)",
+              },
+              type: {
+                type: "string",
+                enum: ["text", "number", "email", "url", "textarea", "select", "checkbox", "radio", "date", "color", "range"],
+                description: "Input type (default: text)",
+              },
+              label: {
+                type: "string",
+                description: "Display label for the field",
+              },
+              placeholder: {
+                type: "string",
+                description: "Placeholder text for text-like inputs",
+              },
+              default: {
+                description: "Default value for the field",
+              },
+              options: {
+                type: "array",
+                description: "Options for select/radio fields",
+                items: {
+                  type: "object",
+                  properties: {
+                    label: { type: "string" },
+                    value: { type: "string" },
+                  },
+                  required: ["label", "value"],
+                },
+              },
+              required: {
+                type: "boolean",
+                description: "Whether the field is required",
+              },
+              min: { type: "number", description: "Minimum value (number/range)" },
+              max: { type: "number", description: "Maximum value (number/range)" },
+              step: { type: "number", description: "Step increment (number/range)" },
+            },
+            required: ["name"],
+          },
+        },
+        title: {
+          type: "string",
+          description: "Optional title displayed above the form",
+        },
+      },
+      required: ["fields"],
+    },
+  },
 ];
 
 const PROMPT_TOOLS = [

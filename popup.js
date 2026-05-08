@@ -74,6 +74,7 @@ The plain text content of the current page is provided in the first message. For
 - add_css(css): Inject CSS styles into the page. Returns an ID for later removal via remove_css.
 - remove_css(id): Remove previously injected CSS by its ID.
 - render_custom_widget(html, css?): Render rich custom HTML/CSS inline in the chat as a widget. CSS is scoped and won't leak. **Only use this if absolutely necessary** — prefer markdown for most responses. Reserve this for content that truly cannot be expressed in markdown, such as interactive elements, complex visual layouts, or styled diagrams. The chat window is small (~400px wide), so keep widget layouts compact.
+- render_form(fields, title?): Render an interactive form in the chat and wait for the user to submit. Each field has a name, type (text/number/email/url/textarea/select/checkbox/radio/date/color/range), label, placeholder, default, options (for select/radio), required, min/max/step (for number/range). Returns the submitted values as a JSON object keyed by field name, or {"_cancelled": true} if cancelled. Use this when you need structured multi-field input from the user.
 - get_quick_prompts(): List the current quick prompt pills.
 - set_quick_prompts(prompts): Replace all quick prompt pills with a new list.`;
 
@@ -243,6 +244,198 @@ function showJsConfirmation(code) {
   });
 }
 
+// Render an interactive form inside an assistant bubble and return a promise that resolves with submitted values
+function renderForm(bubble, fields, title) {
+  return new Promise((resolve) => {
+    const card = document.createElement("div");
+    card.className = "form-card";
+
+    let html = "";
+    if (title) {
+      html += `<div class="form-card-header">${escapeHtml(title)}</div>`;
+    }
+    html += `<div class="form-card-body">`;
+
+    for (const field of fields) {
+      const name = field.name;
+      const type = field.type || "text";
+      const label = field.label || name;
+      const placeholder = field.placeholder || "";
+      const required = field.required ? "required" : "";
+      const defaultVal = field.default != null ? field.default : "";
+
+      if (type === "checkbox") {
+        html += `<label class="form-field form-field-checkbox">
+          <input type="checkbox" name="${escapeHtml(name)}" ${defaultVal ? "checked" : ""} ${required}>
+          <span>${escapeHtml(label)}</span>
+        </label>`;
+      } else if (type === "radio" && field.options) {
+        html += `<div class="form-field">
+          <label class="form-label">${escapeHtml(label)}</label>
+          <div class="form-radio-group">`;
+        for (const opt of field.options) {
+          const checked = String(opt.value) === String(defaultVal) ? "checked" : "";
+          html += `<label class="form-radio-option">
+            <input type="radio" name="${escapeHtml(name)}" value="${escapeHtml(opt.value)}" ${checked} ${required}>
+            <span>${escapeHtml(opt.label)}</span>
+          </label>`;
+        }
+        html += `</div></div>`;
+      } else if (type === "select" && field.options) {
+        html += `<div class="form-field">
+          <label class="form-label">${escapeHtml(label)}</label>
+          <select name="${escapeHtml(name)}" ${required}>`;
+        for (const opt of field.options) {
+          const selected = String(opt.value) === String(defaultVal) ? "selected" : "";
+          html += `<option value="${escapeHtml(opt.value)}" ${selected}>${escapeHtml(opt.label)}</option>`;
+        }
+        html += `</select></div>`;
+      } else if (type === "textarea") {
+        html += `<div class="form-field">
+          <label class="form-label">${escapeHtml(label)}</label>
+          <textarea name="${escapeHtml(name)}" placeholder="${escapeHtml(placeholder)}" ${required}>${escapeHtml(String(defaultVal))}</textarea>
+        </div>`;
+      } else {
+        // text, number, email, url, date, color, range
+        let attrs = `type="${escapeHtml(type)}" name="${escapeHtml(name)}" value="${escapeHtml(String(defaultVal))}" placeholder="${escapeHtml(placeholder)}" ${required}`;
+        if (field.min != null) attrs += ` min="${field.min}"`;
+        if (field.max != null) attrs += ` max="${field.max}"`;
+        if (field.step != null) attrs += ` step="${field.step}"`;
+        html += `<div class="form-field">
+          <label class="form-label">${escapeHtml(label)}</label>
+          <input ${attrs}>
+        </div>`;
+      }
+    }
+
+    html += `</div>`;
+    html += `<div class="form-card-actions">
+      <button class="btn-skip" type="button">Cancel</button>
+      <button class="btn-run" type="submit">Submit</button>
+    </div>`;
+
+    card.innerHTML = html;
+    bubble.appendChild(card);
+    scrollChatToBottom();
+
+    function collectValues() {
+      const values = {};
+      for (const field of fields) {
+        const type = field.type || "text";
+        if (type === "checkbox") {
+          const input = card.querySelector(`input[name="${field.name}"]`);
+          values[field.name] = input ? input.checked : false;
+        } else if (type === "radio") {
+          const checked = card.querySelector(`input[name="${field.name}"]:checked`);
+          values[field.name] = checked ? checked.value : null;
+        } else if (type === "select") {
+          const sel = card.querySelector(`select[name="${field.name}"]`);
+          values[field.name] = sel ? sel.value : null;
+        } else if (type === "textarea") {
+          const ta = card.querySelector(`textarea[name="${field.name}"]`);
+          values[field.name] = ta ? ta.value : "";
+        } else if (type === "number" || type === "range") {
+          const input = card.querySelector(`input[name="${field.name}"]`);
+          values[field.name] = input && input.value !== "" ? Number(input.value) : null;
+        } else {
+          const input = card.querySelector(`input[name="${field.name}"]`);
+          values[field.name] = input ? input.value : "";
+        }
+      }
+      return values;
+    }
+
+    card.querySelector(".btn-run").onclick = () => {
+      // Check required fields
+      const invalids = card.querySelectorAll(":invalid");
+      if (invalids.length > 0) {
+        invalids[0].focus();
+        return;
+      }
+      const values = collectValues();
+      // Replace actions with submitted badge
+      card.querySelector(".form-card-actions").remove();
+      const badge = document.createElement("div");
+      badge.className = "form-card-header";
+      badge.innerHTML = `<span>${title ? escapeHtml(title) : "Form"}</span><span class="js-confirm-badge">submitted</span>`;
+      // Replace the header if it exists, or add one
+      const existingHeader = card.querySelector(".form-card-header");
+      if (existingHeader) {
+        existingHeader.innerHTML = `<span>${escapeHtml(title)}</span><span class="js-confirm-badge">submitted</span>`;
+      } else {
+        card.prepend(badge);
+      }
+      // Disable all inputs
+      card.querySelectorAll("input, select, textarea").forEach((el) => { el.disabled = true; });
+      document.getElementById("text").focus();
+      resolve(JSON.stringify(values));
+    };
+
+    card.querySelector(".btn-skip").onclick = () => {
+      card.querySelector(".form-card-actions").remove();
+      const existingHeader = card.querySelector(".form-card-header");
+      if (existingHeader) {
+        existingHeader.innerHTML = `<span>${escapeHtml(title || "Form")}</span><span style="font-size:10px;color:var(--text-muted)">cancelled</span>`;
+      } else {
+        const badge = document.createElement("div");
+        badge.className = "form-card-header";
+        badge.innerHTML = `<span>Form</span><span style="font-size:10px;color:var(--text-muted)">cancelled</span>`;
+        card.prepend(badge);
+      }
+      card.querySelectorAll("input, select, textarea").forEach((el) => { el.disabled = true; });
+      document.getElementById("text").focus();
+      resolve(null);
+    };
+  });
+}
+
+// Render a static (already-submitted) form for conversation replay
+function renderFormStatic(bubble, fields, title, toolResult) {
+  let values = {};
+  let cancelled = false;
+  if (toolResult) {
+    try {
+      const parsed = JSON.parse(toolResult.content);
+      if (parsed._cancelled) {
+        cancelled = true;
+      } else {
+        values = parsed;
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  const card = document.createElement("div");
+  card.className = "form-card";
+
+  const statusBadge = cancelled
+    ? `<span style="font-size:10px;color:var(--text-muted)">cancelled</span>`
+    : `<span class="js-confirm-badge">submitted</span>`;
+  card.innerHTML = `<div class="form-card-header"><span>${escapeHtml(title || "Form")}</span>${statusBadge}</div>`;
+
+  const body = document.createElement("div");
+  body.className = "form-card-body";
+
+  for (const field of fields) {
+    const val = values[field.name] != null ? values[field.name] : (field.default != null ? field.default : "");
+    const label = field.label || field.name;
+    const type = field.type || "text";
+    const div = document.createElement("div");
+    div.className = "form-field";
+    if (type === "checkbox") {
+      div.className = "form-field form-field-checkbox";
+      div.innerHTML = `<input type="checkbox" ${val ? "checked" : ""} disabled><span>${escapeHtml(label)}</span>`;
+    } else {
+      div.innerHTML = `<label class="form-label">${escapeHtml(label)}</label>
+        <input type="text" value="${escapeHtml(String(val))}" disabled>`;
+    }
+    body.appendChild(div);
+  }
+
+  card.appendChild(body);
+  bubble.appendChild(card);
+  scrollChatToBottom();
+}
+
 // Render a custom widget (HTML + CSS) inside an assistant bubble using shadow DOM
 function renderCustomWidget(bubble, html, css) {
   const container = document.createElement("div");
@@ -314,6 +507,8 @@ function renderConversation(messages) {
           } else if (block.type === "tool_use") {
             if (block.name === "render_custom_widget") {
               renderCustomWidget(bubble, (block.input || {}).html || "", (block.input || {}).css || "");
+            } else if (block.name === "render_form") {
+              renderFormStatic(bubble, (block.input || {}).fields || [], (block.input || {}).title || "", toolResults[block.id]);
             } else {
               const result = toolResults[block.id];
               appendToolCallDisplay(
@@ -333,6 +528,8 @@ function renderConversation(messages) {
           try { args = JSON.parse(tc.function.arguments || "{}"); } catch (e) { /* ignore */ }
           if (tc.function.name === "render_custom_widget") {
             renderCustomWidget(bubble, args.html || "", args.css || "");
+          } else if (tc.function.name === "render_form") {
+            renderFormStatic(bubble, args.fields || [], args.title || "", toolResults[tc.id]);
           } else {
             const result = toolResults[tc.id];
             appendToolCallDisplay(
@@ -591,6 +788,9 @@ async function getLLMResponse() {
                 if (toolName === "render_custom_widget") {
                   renderCustomWidget(currentAssistantBubble, args.html, args.css || "");
                   localResult = "Widget rendered successfully";
+                } else if (toolName === "render_form") {
+                  const formResult = await renderForm(currentAssistantBubble, args.fields || [], args.title || "");
+                  localResult = formResult !== null ? formResult : JSON.stringify({ _cancelled: true });
                 } else if (toolName === "get_quick_prompts") {
                   localResult = await handleGetQuickPrompts();
                 } else if (toolName === "set_quick_prompts") {
@@ -598,7 +798,7 @@ async function getLLMResponse() {
                 }
 
                 if (localResult !== null) {
-                  if (toolName !== "render_custom_widget") {
+                  if (toolName !== "render_custom_widget" && toolName !== "render_form") {
                     appendToolCallDisplay(currentAssistantBubble, toolName, args, localResult, false);
                   }
                   if (service === "anthropic") {
