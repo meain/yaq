@@ -12,6 +12,13 @@ let isProcessing = false;
 
 const converter = new showdown.Converter();
 
+// Persist conversation to storage after every mutation
+function persistConversation() {
+  if (currentTabId && pageContent) {
+    saveConversation(currentTabId, conversationMessages, pageContent.url);
+  }
+}
+
 function setProcessing(active) {
   isProcessing = active;
   const sendBtn = document.getElementById("send");
@@ -234,10 +241,31 @@ function showJsConfirmation(code) {
   });
 }
 
+// Build a map of tool call ID -> tool result from the message history
+function buildToolResultMap(messages) {
+  const map = {};
+  for (const msg of messages) {
+    if (msg.role === "tool" && msg.tool_call_id) {
+      // OpenAI format
+      map[msg.tool_call_id] = { content: msg.content, isError: false };
+    } else if (msg.role === "user" && Array.isArray(msg.content)) {
+      // Anthropic format: tool_result blocks inside user messages
+      for (const block of msg.content) {
+        if (block.type === "tool_result" && block.tool_use_id) {
+          map[block.tool_use_id] = { content: block.content, isError: !!block.is_error };
+        }
+      }
+    }
+  }
+  return map;
+}
+
 // Render a full conversation from history (read-only)
 function renderConversation(messages) {
   const chat = document.getElementById("chat-messages");
   chat.innerHTML = "";
+
+  const toolResults = buildToolResultMap(messages);
 
   for (const msg of messages) {
     if (msg.role === "system") continue;
@@ -251,8 +279,12 @@ function renderConversation(messages) {
       continue;
     }
 
+    // Skip tool result messages — they're rendered inline with the tool call
+    if (msg.role === "tool") continue;
+
     if (msg.role === "assistant") {
       const bubble = appendAssistantBubble();
+
       if (typeof msg.content === "string" && msg.content.trim()) {
         updateAssistantBubble(bubble, msg.content);
       } else if (Array.isArray(msg.content)) {
@@ -260,7 +292,28 @@ function renderConversation(messages) {
         for (const block of msg.content) {
           if (block.type === "text" && block.text.trim()) {
             updateAssistantBubble(bubble, block.text);
+          } else if (block.type === "tool_use") {
+            const result = toolResults[block.id];
+            appendToolCallDisplay(
+              bubble, block.name, block.input || {},
+              result ? result.content : "(no result)",
+              result ? result.isError : false,
+            );
           }
+        }
+      }
+
+      // OpenAI format: tool_calls array on assistant message
+      if (msg.tool_calls) {
+        for (const tc of msg.tool_calls) {
+          let args = {};
+          try { args = JSON.parse(tc.function.arguments || "{}"); } catch (e) { /* ignore */ }
+          const result = toolResults[tc.id];
+          appendToolCallDisplay(
+            bubble, tc.function.name, args,
+            result ? result.content : "(no result)",
+            result ? result.isError : false,
+          );
         }
       }
     }
@@ -326,14 +379,10 @@ async function sendMessage(text) {
 
     // Add user message
     conversationMessages.push({ role: "user", content: text });
+    persistConversation();
 
     // Get LLM response with tool loop
     await getLLMResponse();
-
-    // Save conversation
-    if (currentTabId && pageContent) {
-      saveConversation(currentTabId, conversationMessages, pageContent.url);
-    }
   } catch (error) {
     const bubble = appendAssistantBubble();
     updateAssistantBubble(bubble, `**Error:** ${error.message}`);
@@ -440,6 +489,7 @@ async function getLLMResponse() {
                     content: response.content,
                   });
                 }
+                persistConversation();
                 setProcessing(false);
                 currentAssistantBubble = null;
                 resolve();
@@ -471,6 +521,7 @@ async function getLLMResponse() {
                 currentMessages.push(asstMsg);
                 conversationMessages.push(asstMsg);
               }
+              persistConversation();
 
               // Execute each tool
               const anthropicResults = [];
@@ -496,6 +547,7 @@ async function getLLMResponse() {
                       const toolMsg = { role: "tool", tool_call_id: tc.id, content: result };
                       currentMessages.push(toolMsg);
                       conversationMessages.push(toolMsg);
+                      persistConversation();
                     }
                     continue;
                   }
@@ -521,6 +573,7 @@ async function getLLMResponse() {
                     const toolMsg = { role: "tool", tool_call_id: tc.id, content: localResult };
                     currentMessages.push(toolMsg);
                     conversationMessages.push(toolMsg);
+                    persistConversation();
                   }
                   continue;
                 }
@@ -539,6 +592,7 @@ async function getLLMResponse() {
                     const toolMsg = { role: "tool", tool_call_id: tc.id, content: result };
                     currentMessages.push(toolMsg);
                     conversationMessages.push(toolMsg);
+                    persistConversation();
                   }
                 } catch (error) {
                   const errMsg = `Error: ${error.message}`;
@@ -555,6 +609,7 @@ async function getLLMResponse() {
                     const toolMsg = { role: "tool", tool_call_id: tc.id, content: errMsg };
                     currentMessages.push(toolMsg);
                     conversationMessages.push(toolMsg);
+                    persistConversation();
                   }
                 }
               }
@@ -563,6 +618,7 @@ async function getLLMResponse() {
                 const toolResultMsg = { role: "user", content: anthropicResults };
                 currentMessages.push(toolResultMsg);
                 conversationMessages.push(toolResultMsg);
+                persistConversation();
               }
 
               // Continue loop for next LLM response
@@ -574,6 +630,7 @@ async function getLLMResponse() {
                   content: response.content,
                 });
               }
+              persistConversation();
 
               setProcessing(false);
               currentAssistantBubble = null;
@@ -615,10 +672,9 @@ function showWelcome() {
 }
 
 function newChat() {
-  // Archive current conversation if it has content
-  if (conversationMessages.length >= 3 && pageContent) {
-    archiveConversation(conversationMessages, pageContent.url);
-  }
+  const hadConversation = conversationMessages.length >= 3 && pageContent;
+  const oldMessages = conversationMessages;
+  const oldUrl = pageContent?.url;
 
   // Reset state
   conversationMessages = [];
@@ -633,7 +689,15 @@ function newChat() {
   }
 
   document.getElementById("text").focus();
-  renderHistoryList(onHistorySelect);
+
+  // Archive then refresh history list so the new entry appears immediately
+  if (hadConversation) {
+    archiveConversation(oldMessages, oldUrl, () => {
+      renderHistoryList(onHistorySelect);
+    });
+  } else {
+    renderHistoryList(onHistorySelect);
+  }
 }
 
 function onHistorySelect(interaction) {

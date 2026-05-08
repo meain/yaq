@@ -40,8 +40,11 @@ function getConversationTitle(messages) {
 }
 
 // Archive a conversation to the history store
-function archiveConversation(messages, url) {
-  if (!messages || messages.length < 3) return; // Need at least system + user + assistant
+function archiveConversation(messages, url, callback) {
+  if (!messages || messages.length < 3) {
+    if (callback) callback();
+    return;
+  }
 
   chrome.storage.local.get({ interactions: [] }, function (items) {
     const interactions = items.interactions;
@@ -57,7 +60,9 @@ function archiveConversation(messages, url) {
       interactions.shift();
     }
 
-    chrome.storage.local.set({ interactions });
+    chrome.storage.local.set({ interactions }, function () {
+      if (callback) callback();
+    });
   });
 }
 
