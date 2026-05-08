@@ -385,7 +385,13 @@ async function sendMessage(text) {
     await getLLMResponse();
   } catch (error) {
     const bubble = appendAssistantBubble();
-    updateAssistantBubble(bubble, `**Error:** ${error.message}`);
+    let errorMd = `**Error:** ${error.message}`;
+    if (error.message.includes("Receiving end does not exist")) {
+      errorMd += `\n\n<details><summary>Why does this happen?</summary>\n\nThis happens when:\n- The page is restricted (chrome://, file://, extension pages, Web Store)\n- The tab was opened before the extension was installed or reloaded\n- The page hasn't finished loading yet\n</details>`;
+    } else if (error.message.includes("Unable to get page content")) {
+      errorMd += `\n\n<details><summary>Why does this happen?</summary>\n\nThis can happen with:\n- PDF files or image-only pages\n- Pages that load content dynamically (heavy SPAs)\n- Blank or empty pages\n\nWait for the page to fully load and try again.\n</details>`;
+    }
+    updateAssistantBubble(bubble, errorMd);
   } finally {
     setProcessing(false);
     textArea.focus();
