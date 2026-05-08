@@ -4,7 +4,7 @@
 
 Yaq is a browser extension that uses LLMs to help you interact with web content — ask questions, get summaries, inspect pages, and more, all through a conversational chat interface.
 
-https://github.com/user-attachments/assets/1680801a-7b0e-4564-bfa6-e5ede583a71e
+https://github.com/user-attachments/assets/9fb0b6d8-92fd-4822-96c7-f78bedc8313a
 
 ## Features
 
