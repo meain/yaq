@@ -215,49 +215,98 @@ async function getYoutubeSubtitles() {
   return text;
 }
 
-function _extractCaptions(html) {
-  const splittedHtml = html.split('"captions":');
-  if (splittedHtml.length > 1) {
-    const videoDetails = splittedHtml[1].split(',"videoDetails')[0];
-    const jsonObj = JSON.parse(videoDetails.replace("\n", ""));
-    return jsonObj["playerCaptionsTracklistRenderer"];
-  }
-  return null;
-}
-
 async function getLanguagesList(videoID) {
-  const videoURL = `https://www.youtube.com/watch?v=${videoID}`;
-  const data = await fetch(videoURL).then((res) => res.text());
-  const decodedData = data.replace("\\u0026", "&").replace("\\", "");
+  // Primary: InnerTube API (doesn't require HTML parsing)
+  try {
+    const resp = await fetch("https://www.youtube.com/youtubei/v1/player", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        context: {
+          client: { clientName: "ANDROID", clientVersion: "20.10.38" },
+        },
+        videoId: videoID,
+      }),
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      const tracks =
+        data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+      if (tracks?.length) {
+        return tracks.map((track) => ({
+          ...track,
+          language:
+            track.name?.simpleText || track.name?.runs?.[0]?.text || "Unknown",
+        }));
+      }
+    }
+  } catch (_) {}
 
-  const captionJSON = _extractCaptions(decodedData);
+  // Fallback: parse ytInitialPlayerResponse from page HTML
+  const html = await fetch(
+    `https://www.youtube.com/watch?v=${videoID}`,
+  ).then((r) => r.text());
+  const captionJSON = _extractCaptions(html);
 
-  if (!captionJSON || !("captionTracks" in captionJSON)) {
+  if (!captionJSON?.captionTracks?.length) {
     throw new Error(`Could not find captions for video: ${videoID}`);
   }
 
   return captionJSON.captionTracks.map((track) => ({
     ...track,
-    language: track.name.simpleText,
+    language:
+      track.name?.simpleText || track.name?.runs?.[0]?.text || "Unknown",
   }));
 }
 
-async function getSubtitles(subtitle) {
-  if (!subtitle || !subtitle.baseUrl) {
-    return "";
-  }
+function _extractCaptions(html) {
+  // Locate ytInitialPlayerResponse and extract its JSON using brace-depth tracking
+  const markerIdx = html.indexOf("ytInitialPlayerResponse");
+  if (markerIdx === -1) return null;
 
-  const response = await fetch(subtitle.baseUrl);
-  const transcript = await response.text();
+  const jsonStart = html.indexOf("{", markerIdx);
+  if (jsonStart === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escapeNext = false;
+
+  for (let i = jsonStart; i < html.length; i++) {
+    const ch = html[i];
+    if (escapeNext) { escapeNext = false; continue; }
+    if (ch === "\\" && inString) { escapeNext = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === "{") depth++;
+    if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        try {
+          const obj = JSON.parse(html.slice(jsonStart, i + 1));
+          return obj?.captions?.playerCaptionsTracklistRenderer || null;
+        } catch (_) {
+          return null;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+async function getSubtitles(subtitle) {
+  if (!subtitle?.baseUrl) return "";
+
+  const transcript = await fetch(subtitle.baseUrl).then((r) => r.text());
 
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(transcript, "text/xml");
 
   const textElements = xmlDoc.getElementsByTagName("text");
-  let transcriptText = "";
+  const parts = [];
   for (let i = 0; i < textElements.length; i++) {
-    transcriptText += textElements[i].innerHTML + " ";
+    const text = textElements[i].textContent;
+    if (text) parts.push(text);
   }
 
-  return transcriptText.trim();
+  return parts.join(" ");
 }
