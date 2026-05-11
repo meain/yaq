@@ -1135,6 +1135,27 @@ function handleSetQuickPrompts(prompts) {
   });
 }
 
+// === Export chat ===
+
+function exportChat() {
+  if (conversationMessages.length === 0) return;
+
+  const data = {
+    url: pageContent?.url || null,
+    exportedAt: new Date().toISOString(),
+    messages: conversationMessages,
+  };
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const title = getConversationTitle(conversationMessages).replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+  a.download = `yaq-${title || "chat"}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // === Textarea auto-resize ===
 
 function setupTextarea() {
@@ -1195,6 +1216,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // New chat button
   document.getElementById("new-chat").addEventListener("click", newChat);
+
+  // Export chat button
+  document.getElementById("export-btn").addEventListener("click", exportChat);
 
   // Send button — sends when idle, stops when processing
   document.getElementById("send").addEventListener("click", () => {
