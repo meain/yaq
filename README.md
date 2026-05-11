@@ -13,6 +13,8 @@ Yaq is a browser extension that uses LLMs to help you interact with web content 
 - **JavaScript confirmation**: Shows code for approval before executing — yolo mode auto-approves
 - **Quick prompts**: Configurable one-click pills with Ctrl+1-9 shortcuts
 - **Markdown rendering**: Responses displayed as chat bubbles with proper formatting
+- **YouTube transcripts**: Auto-fetches video subtitles as context on YouTube pages
+- **Export chat**: Download conversation as JSON
 - **Smart auto-scroll**: Follows streaming output but lets you scroll back freely
 - **Copy on hover**: Copy any message with one click
 - **Dual provider support**: Works with OpenAI and Anthropic APIs
