@@ -617,6 +617,14 @@ async function sendMessage(text) {
       if (pageContent.selection) {
         contextMsg += `\n\n---\nUser selected text: ${pageContent.selection}`;
       }
+      if (isYouTube) {
+        try {
+          const subtitles = await executeToolCall("get_youtube_subtitles", {});
+          if (subtitles && !subtitles.startsWith("Error:")) {
+            contextMsg += `\n\n---\nVideo transcript:\n${subtitles}`;
+          }
+        } catch (e) { /* subtitles not available, continue without */ }
+      }
       conversationMessages.push({ role: "user", content: contextMsg });
       conversationMessages.push({
         role: "assistant",
