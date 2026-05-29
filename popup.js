@@ -9,6 +9,7 @@ let isYouTube = false;
 let allModels = [];
 let yoloMode = false;
 let isProcessing = false;
+let customSystemPrompt = "";
 
 const converter = new showdown.Converter();
 
@@ -62,7 +63,7 @@ const defaultButtons = [
 // === System prompt ===
 
 function buildSystemPrompt() {
-  let prompt = `You are Yaq, a web page assistant running in the user's browser. You are viewing the page the user currently has open.
+  let prompt = `You are Yaq, a web page assistant running in the user's browser as a sidebar. You are viewing the page the user currently has open. You are in a narrow sidebar panel — keep responses short and compact.
 
 ## Context
 The plain text content of the current page is provided in the first message. For HTML structure and interactive inspection, use the provided tools.
@@ -82,10 +83,14 @@ The plain text content of the current page is provided in the first message. For
     prompt += `\n- get_youtube_subtitles(): Fetch the video's subtitles/transcript.`;
   }
 
+  if (customSystemPrompt) {
+    prompt += `\n\n## Additional Instructions\n${customSystemPrompt}`;
+  }
+
   prompt += `
 
 ## Guidelines
-- You are running inside a small browser extension popup window. Keep responses compact and avoid overly wide layouts.
+- You are running inside a narrow sidebar panel. Keep responses short and compact — avoid wide layouts, long prose, and unnecessary verbosity.
 - Be concise and direct.
 - Answer from the provided page text first; use tools only when needed.
 - **Always use markdown** for text responses — tables, lists, code blocks, bold, headers, etc. Do NOT use render_custom_widget for content that can be expressed in markdown. The only valid use for render_custom_widget is truly interactive content with no markdown equivalent.
@@ -1207,6 +1212,17 @@ document.addEventListener("DOMContentLoaded", function () {
   chrome.storage.local.get({ yoloMode: false }, (items) => {
     yoloMode = items.yoloMode;
     document.getElementById("yolo-mode").checked = yoloMode;
+  });
+
+  // Load custom system prompt and wire up textarea
+  chrome.storage.local.get({ customSystemPrompt: "" }, (items) => {
+    customSystemPrompt = items.customSystemPrompt;
+    document.getElementById("system-prompt-input").value = customSystemPrompt;
+  });
+
+  document.getElementById("system-prompt-input").addEventListener("input", function () {
+    customSystemPrompt = this.value.trim();
+    chrome.storage.local.set({ customSystemPrompt });
   });
 
   document.getElementById("yolo-mode").addEventListener("change", function () {
