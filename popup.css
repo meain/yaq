@@ -539,6 +539,38 @@ body {
     border: 1px solid var(--border);
 }
 
+.chat-bubble.assistant table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 6px 0;
+    font-size: 12px;
+}
+
+.chat-bubble.assistant th,
+.chat-bubble.assistant td {
+    padding: 5px 8px;
+    text-align: left;
+    border: 1px solid var(--border);
+}
+
+.chat-bubble.assistant thead tr {
+    background: var(--accent);
+    color: #fff;
+}
+
+.chat-bubble.assistant thead th {
+    border-color: var(--accent-hover);
+    font-weight: 600;
+}
+
+.chat-bubble.assistant tbody tr:nth-child(even) {
+    background: var(--surface);
+}
+
+.chat-bubble.assistant tbody tr:hover {
+    background: #eef0f4;
+}
+
 /* === Form card (inside assistant bubble) === */
 .form-card {
     margin: 6px 0;
