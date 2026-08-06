@@ -1,7 +1,7 @@
 {
   "name": "Yaq",
   "description": "Browser extension to do LLM stuff",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "manifest_version": 3,
   "content_scripts": [
     {
