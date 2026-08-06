@@ -1,0 +1,26 @@
+name: Publish to Firefox Add-ons
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  publish-firefox:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sign and publish to AMO
+        run: |
+          npx --yes web-ext@latest sign \
+            --api-key="${{ secrets.AMO_JWT_ISSUER }}" \
+            --api-secret="${{ secrets.AMO_JWT_SECRET }}" \
+            --channel=listed \
+            --ignore-files=flake.nix \
+            --ignore-files=flake.lock \
+            --ignore-files=Makefile \
+            --ignore-files=CLAUDE.md
